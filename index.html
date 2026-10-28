@@ -1,1 +1,2700 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepCraft Map — Тактическая РП Карта Боевых Действий</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        tactical: {
+                            950: '#0a0d0e',
+                            900: '#111618',
+                            800: '#1a2124',
+                            700: '#263034',
+                            600: '#37454b',
+                            accent: '#eab308',
+                            blue: '#3b82f6',
+                            red: '#ef4444',
+                            green: '#22c55e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0a0d0e;
+            color: #e2e8f0;
+            overflow: hidden;
+            user-select: none;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111618;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #263034;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #37454b;
+        }
+        .tactical-border {
+            border: 1px solid #263034;
+        }
+        .tool-btn.active {
+            background-color: rgba(234, 179, 8, 0.18);
+            border-color: #eab308;
+            color: #eab308;
+            box-shadow: 0 0 12px rgba(234, 179, 8, 0.2);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans text-xs antialiased">
 
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ (ШАПКА ОРИГИНАЛЬНОЙ ПЕРВОЙ ВЕРСИИ) -->
+    <header class="h-12 bg-tactical-900 border-b border-tactical-700 flex items-center justify-between px-3 z-20 shrink-0">
+        <!-- Логотип и название -->
+        <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2 bg-tactical-800 px-2.5 py-1.5 rounded border border-tactical-700">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                <span class="font-mono font-bold tracking-wider text-sm text-white">DEEPCRAFT<span class="text-amber-400">MAP</span></span>
+                <span class="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-mono border border-amber-500/30">v2.4 RP</span>
+            </div>
+            
+            <div class="hidden xl:flex items-center gap-1.5 text-slate-400 font-mono text-[11px]">
+                <span>ОПЕРАЦИЯ:</span>
+                <input id="mapTitleInput" type="text" value="Кейратский Конфликт — Сводка Генштаба" 
+                    class="bg-tactical-800 border border-tactical-700 rounded px-2 py-1 text-slate-100 focus:outline-none focus:border-amber-400 w-60 font-sans font-medium"
+                    title="Название карты (отображается при экспорте в PNG)">
+            </div>
+        </div>
+
+        <!-- Таймлайн (Сводки по датам) -->
+        <div class="flex items-center gap-1.5 bg-tactical-950 px-2.5 py-1 rounded border border-tactical-700">
+            <span class="text-slate-400 font-mono text-[11px] mr-1 hidden sm:inline">📅 СВОДКА:</span>
+            <select id="snapshotSelect" class="bg-tactical-800 text-amber-400 font-mono font-semibold px-2 py-1 rounded border border-tactical-700 focus:outline-none">
+            </select>
+            <button id="btnPrevSnap" class="px-2 py-1 bg-tactical-800 hover:bg-tactical-700 rounded border border-tactical-700 text-slate-300" title="Предыдущая дата">◀</button>
+            <button id="btnNextSnap" class="px-2 py-1 bg-tactical-800 hover:bg-tactical-700 rounded border border-tactical-700 text-slate-300" title="Следующая дата">▶</button>
+            <button id="btnNewSnap" class="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded font-medium flex items-center gap-1" title="Сохранить текущее состояние как новый день">+ День</button>
+            <button id="btnDelSnap" class="px-1.5 py-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded" title="Удалить текущий снимок">✕</button>
+        </div>
+
+        <!-- Кнопки спутникового снимка, GitHub и экспорта -->
+        <div class="flex items-center gap-1.5">
+            <button id="btnToggleRef" class="px-2.5 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 rounded border border-blue-500/40 flex items-center gap-1.5 transition font-medium" title="Настроить или загрузить спутниковый снимок (или нажмите Ctrl+V)">
+                <span>🛰️</span> <span>Спутник / Снимок</span>
+            </button>
+            <button id="btnBakeGitHub" class="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded shadow flex items-center gap-1.5 transition" title="Скачать готовый index.html со вшитым внутрь спутниковым снимком и картой для загрузки на GitHub">
+                <span>📦</span> <span class="hidden md:inline">Скачать index.html для GitHub</span>
+            </button>
+            <button id="btnExportPNG" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded shadow flex items-center gap-1.5 transition">
+                <span>📸</span> <span class="hidden sm:inline">Скачать PNG</span>
+            </button>
+            <div class="relative group">
+                <button class="px-2.5 py-1.5 bg-tactical-800 hover:bg-tactical-700 text-slate-200 rounded border border-tactical-700 font-mono">
+                    💾 Проект ▾
+                </button>
+                <div class="absolute right-0 mt-1 w-52 bg-tactical-900 border border-tactical-700 rounded shadow-xl hidden group-hover:block z-50 py-1">
+                    <button id="btnSaveJSON" class="w-full text-left px-3 py-2 hover:bg-tactical-800 flex items-center gap-2">📥 Скачать проект (.JSON)</button>
+                    <label class="w-full text-left px-3 py-2 hover:bg-tactical-800 flex items-center gap-2 cursor-pointer">
+                        📤 Загрузить проект (.JSON)
+                        <input type="file" id="inputLoadJSON" accept=".json" class="hidden">
+                    </label>
+                    <hr class="border-tactical-700 my-1">
+                    <button id="btnResetDefault" class="w-full text-left px-3 py-2 hover:bg-red-950/60 text-red-400 flex items-center gap-2">🔄 Сбросить к исходным 7 регионам</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ОСНОВНАЯ РАБОЧАЯ ОБЛАСТЬ -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- ЛЕВАЯ ПАНЕЛЬ ИНСТРУМЕНТОВ (ОРИГИНАЛЬНАЯ ПЕРВАЯ ВЕРСИЯ) -->
+        <aside class="w-64 bg-tactical-900 border-r border-tactical-700 flex flex-col z-10 shrink-0 overflow-y-auto">
+            
+            <!-- Секция 1: Основные инструменты -->
+            <div class="p-3 border-b border-tactical-700">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Инструменты карты</span>
+                    <span class="text-amber-400" id="activeToolLabel">Выбор</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5">
+                    <button data-tool="select" class="tool-btn active flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">↖️</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Выбор / Узлы</div>
+                            <div class="text-[9px] text-slate-400">Двигать, править</div>
+                        </div>
+                    </button>
+                    <button data-tool="pan" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">✋</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Рука (Обзор)</div>
+                            <div class="text-[9px] text-slate-400">Или зажать Пробел</div>
+                        </div>
+                    </button>
+                    <button data-tool="paint" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🎨</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Заливка зоны</div>
+                            <div class="text-[9px] text-slate-400">Клик по региону</div>
+                        </div>
+                    </button>
+                    <button data-tool="draw_front" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🚩</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Линия фронта</div>
+                            <div class="text-[9px] text-slate-400">Полигон контроля</div>
+                        </div>
+                    </button>
+                    <button data-tool="draw_region" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🗺️</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Новый регион</div>
+                            <div class="text-[9px] text-slate-400">Базовая область</div>
+                        </div>
+                    </button>
+                    <button data-tool="draw_water" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🌊</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Море / Река</div>
+                            <div class="text-[9px] text-slate-400">Водный объект</div>
+                        </div>
+                    </button>
+                    <button data-tool="place_unit" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🛡️</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Военный знак</div>
+                            <div class="text-[9px] text-slate-400">Отряды НАТО/РП</div>
+                        </div>
+                    </button>
+                    <button data-tool="draw_arrow" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🏹</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Стрелка удара</div>
+                            <div class="text-[9px] text-slate-400">Атака / Рубеж</div>
+                        </div>
+                    </button>
+                    <button data-tool="place_city" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">🏙️</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Город / Текст</div>
+                            <div class="text-[9px] text-slate-400">Точка или надпись</div>
+                        </div>
+                    </button>
+                    <button data-tool="ruler" class="tool-btn flex items-center gap-2 px-2.5 py-2 rounded bg-tactical-800 border border-tactical-700 hover:bg-tactical-700 text-left transition">
+                        <span class="text-sm">📏</span>
+                        <div>
+                            <div class="font-semibold text-[11px]">Дальномер</div>
+                            <div class="text-[9px] text-slate-400">В блоках Майна</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Секция 2: Активная Фракция / Статус контроля -->
+            <div class="p-3 border-b border-tactical-700">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Активная фракция / Статус</span>
+                    <button id="btnEditFactions" class="text-[10px] text-amber-400 hover:underline">Изменить</button>
+                </div>
+                <div id="factionList" class="space-y-1">
+                    <!-- Заполняется из JS -->
+                </div>
+            </div>
+
+            <!-- Секция 3: Конфигуратор Тактического Значка или Стрелки -->
+            <div class="p-3 border-b border-tactical-700">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">
+                    Шаблон значка НАТО / Стрелки
+                </div>
+                
+                <!-- Выбор типа юнита -->
+                <div class="grid grid-cols-3 gap-1 mb-2" id="unitTypePalette">
+                    <button data-unit="infantry" class="unit-type-btn bg-tactical-800 border border-amber-400 text-amber-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">☒</span>
+                        <span class="text-[9px]">Пехота</span>
+                    </button>
+                    <button data-unit="armor" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⬭</span>
+                        <span class="text-[9px]">Танки</span>
+                    </button>
+                    <button data-unit="mech" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">☒⬭</span>
+                        <span class="text-[9px]">Мех.пех</span>
+                    </button>
+                    <button data-unit="artillery" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⦿</span>
+                        <span class="text-[9px]">Арта</span>
+                    </button>
+                    <button data-unit="hq" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⚑</span>
+                        <span class="text-[9px]">Штаб</span>
+                    </button>
+                    <button data-unit="fort" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⛨</span>
+                        <span class="text-[9px]">Укреп</span>
+                    </button>
+                    <button data-unit="battle" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⚔️</span>
+                        <span class="text-[9px]">Бой / Взрыв</span>
+                    </button>
+                    <button data-unit="navy" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">⚓</span>
+                        <span class="text-[9px]">Флот</span>
+                    </button>
+                    <button data-unit="air" class="unit-type-btn bg-tactical-800 border border-tactical-700 text-slate-300 p-1.5 rounded flex flex-col items-center gap-0.5 hover:bg-tactical-700">
+                        <span class="font-mono text-xs font-bold">✈️</span>
+                        <span class="text-[9px]">Авиа / ПВО</span>
+                    </button>
+                </div>
+
+                <!-- Настройки по умолчанию для нового юнита/стрелки -->
+                <div class="space-y-1.5 bg-tactical-950 p-2 rounded border border-tactical-700">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] text-slate-400">Подпись отряда:</span>
+                        <input id="defaultUnitLabel" type="text" value="1-й батальон" class="bg-tactical-800 border border-tactical-700 rounded px-1.5 py-0.5 w-32 text-[11px] text-white">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] text-slate-400">Тип стрелки:</span>
+                        <select id="defaultArrowStyle" class="bg-tactical-800 border border-tactical-700 rounded px-1.5 py-0.5 w-32 text-[11px] text-white">
+                            <option value="attack">Жирный удар (Атака)</option>
+                            <option value="dashed">Пунктир (Маневр/Планы)</option>
+                            <option value="defense">Линия обороны (Окопы)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Секция 4: Слои и Отображение -->
+            <div class="p-3">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">
+                    Видимость слоев и сетка
+                </div>
+                <div class="space-y-1.5 text-[11px]">
+                    <div class="bg-tactical-950 p-2 rounded border border-tactical-700 mb-2">
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Прозрачность регионов:</span>
+                            <span id="globalRegionAlphaLabel" class="text-amber-400 font-mono">35%</span>
+                        </div>
+                        <input type="range" id="rangeGlobalRegionAlpha" min="0" max="0.95" step="0.05" value="0.35" class="w-full accent-amber-400">
+                    </div>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded text-blue-300">
+                        <span>🛰️ Спутниковый снимок (Фон)</span>
+                        <input type="checkbox" id="layerSat" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🌊 Моря и береговая линия</span>
+                        <input type="checkbox" id="layerWater" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🗺️ Базовые регионы (7 окр.)</span>
+                        <input type="checkbox" id="layerRegions" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🚩 Полигоны линии фронта</span>
+                        <input type="checkbox" id="layerFronts" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🏙️ Населенные пункты и моря</span>
+                        <input type="checkbox" id="layerCities" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🏹 Стрелки и рубежи обороны</span>
+                        <input type="checkbox" id="layerArrows" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>🛡️ Военные тактические значки</span>
+                        <input type="checkbox" id="layerUnits" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded">
+                        <span>#️⃣ Тактическая координатная сетка</span>
+                        <input type="checkbox" id="layerGrid" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded text-amber-300">
+                        <span>🧲 Привязка узлов границ (Snap)</span>
+                        <input type="checkbox" id="toggleSnap" checked class="accent-amber-400">
+                    </label>
+                    <label class="flex items-center justify-between cursor-pointer hover:bg-tactical-800 p-1 rounded text-emerald-300">
+                        <span>〰️ Сглаживание контуров</span>
+                        <input type="checkbox" id="toggleSmooth" class="accent-amber-400">
+                    </label>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- ЦЕНТРАЛЬНЫЙ ХОЛСТ КАРТЫ -->
+        <main class="flex-1 relative bg-[#0c1114] overflow-hidden flex flex-col" id="canvasContainer">
+            
+            <!-- Плавающая подсказка для текущего инструмента -->
+            <div id="toolHintBanner" class="absolute top-3 left-1/2 -translate-x-1/2 z-10 bg-tactical-900/95 border border-tactical-600 px-3.5 py-1.5 rounded-full shadow-lg flex items-center gap-2 pointer-events-none">
+                <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                <span id="toolHintText" class="text-slate-200 font-medium text-[11px]">Кликните по объекту для выбора. Перетаскивайте вершины для изменения границ.</span>
+            </div>
+
+            <!-- Панель управления спутниковым снимком-подложкой -->
+            <div id="refImagePanel" class="hidden absolute top-14 left-4 z-20 bg-tactical-900/95 border border-amber-500/40 rounded-lg p-3 w-80 shadow-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-amber-400 flex items-center gap-1.5">🛰️ Спутниковый снимок Кейрата</span>
+                    <button id="btnCloseRefPanel" class="text-slate-400 hover:text-white">✕</button>
+                </div>
+                <p class="text-[10px] text-slate-400 mb-2 leading-relaxed">
+                    Выберите ваш скриншот Майнкрафта (или нажмите <b>Ctrl+V</b> в любом месте), а затем нажмите жёлтую кнопку <b>«📦 Скачать index.html для GitHub»</b> в шапке — снимок навсегда зашьётся внутрь файла!
+                </p>
+                <div class="space-y-2">
+                    <label class="block w-full text-center py-1.5 bg-blue-600/30 hover:bg-blue-600/40 border border-blue-500/50 rounded cursor-pointer font-semibold text-blue-200">
+                        📂 Выбрать файл снимка с ПК...
+                        <input type="file" id="inputRefImage" accept="image/*" class="hidden">
+                    </label>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400">Показывать снимок:</span>
+                        <input type="checkbox" id="chkShowRef" checked class="accent-amber-400">
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400">Яркость / Прозрачность:</span>
+                        <input type="range" id="rangeRefAlpha" min="0.1" max="1" step="0.05" value="1.0" class="w-36 accent-amber-400">
+                    </div>
+                    <div class="flex items-center justify-between text-[11px]">
+                        <span class="text-slate-400">Растянуть под карту:</span>
+                        <input type="checkbox" id="chkFitRef" checked class="accent-amber-400">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сам Canvas -->
+            <canvas id="mapCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+            <!-- Нижняя панель зума, координат и масштаба Майнкрафта -->
+            <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+                <!-- Координаты курсора в Майнкрафте -->
+                <div class="bg-tactical-900/90 border border-tactical-700 px-3 py-1.5 rounded flex items-center gap-3 pointer-events-auto shadow">
+                    <div class="font-mono text-[11px] text-slate-300">
+                        <span class="text-slate-500">MC XYZ:</span> 
+                        <span id="coordDisplay" class="text-amber-400 font-bold">X: 0, Z: 0</span>
+                    </div>
+                    <div class="h-3 w-[1px] bg-tactical-700"></div>
+                    <div class="flex items-center gap-1.5 text-[11px]">
+                        <span class="text-slate-400">Масштаб (1px = блоков):</span>
+                        <input id="mcScaleInput" type="number" value="4" min="0.1" step="0.5" class="w-14 bg-tactical-800 border border-tactical-700 rounded px-1.5 py-0.5 text-center font-mono text-white">
+                    </div>
+                </div>
+
+                <!-- Управление камерой -->
+                <div class="bg-tactical-900/90 border border-tactical-700 px-2 py-1 rounded flex items-center gap-1.5 pointer-events-auto shadow">
+                    <button id="btnZoomOut" class="px-2 py-0.5 bg-tactical-800 hover:bg-tactical-700 rounded text-slate-200 font-mono font-bold">−</button>
+                    <span id="zoomLabel" class="font-mono text-[11px] w-12 text-center text-slate-300">100%</span>
+                    <button id="btnZoomIn" class="px-2 py-0.5 bg-tactical-800 hover:bg-tactical-700 rounded text-slate-200 font-mono font-bold">+</button>
+                    <button id="btnResetView" class="px-2 py-0.5 bg-tactical-800 hover:bg-tactical-700 rounded text-[11px] text-amber-400 ml-1">По центру</button>
+                </div>
+            </div>
+        </main>
+
+        <!-- ПРАВАЯ ПАНЕЛЬ (ИНСПЕКТОР СВОЙСТВ И СПИСОК ОБЪЕКТОВ) -->
+        <aside class="w-72 bg-tactical-900 border-l border-tactical-700 flex flex-col z-10 shrink-0 overflow-y-auto">
+            
+            <!-- Инспектор выбранного элемента -->
+            <div class="p-3 border-b border-tactical-700">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Инспектор объекта</span>
+                    <span id="selectedTypeBadge" class="text-[10px] bg-tactical-800 px-1.5 py-0.5 rounded text-slate-400">Нет выбора</span>
+                </div>
+
+                <div id="inspectorEmpty" class="py-6 text-center text-slate-500 text-[11px]">
+                    Выберите любой регион, линию фронта, город, отряд или стрелку на карте для настройки его параметров.
+                </div>
+
+                <!-- Динамическая форма свойств -->
+                <div id="inspectorContent" class="hidden space-y-2.5">
+                    <div>
+                        <label class="block text-[10px] text-slate-400 mb-1">Название / Подпись:</label>
+                        <input type="text" id="propName" class="w-full bg-tactical-800 border border-tactical-700 rounded px-2 py-1 text-white focus:outline-none focus:border-amber-400">
+                    </div>
+
+                    <div id="propFactionRow">
+                        <label class="block text-[10px] text-slate-400 mb-1">Принадлежность (Фракция):</label>
+                        <select id="propFaction" class="w-full bg-tactical-800 border border-tactical-700 rounded px-2 py-1 text-white focus:outline-none focus:border-amber-400">
+                        </select>
+                    </div>
+
+                    <div id="propHatchRow" class="flex items-center justify-between">
+                        <span class="text-[11px] text-slate-300">Штриховка (Спорная / Бои):</span>
+                        <input type="checkbox" id="propHatched" class="accent-amber-400">
+                    </div>
+
+                    <div id="propOpacityRow">
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-0.5">
+                            <span>Плотность заливки:</span>
+                            <span id="propOpacityVal">35%</span>
+                        </div>
+                        <input type="range" id="propOpacity" min="0.0" max="0.95" step="0.05" value="0.35" class="w-full accent-amber-400">
+                    </div>
+
+                    <div id="propUnitTypeRow" class="hidden">
+                        <label class="block text-[10px] text-slate-400 mb-1">Тип тактического значка:</label>
+                        <select id="propUnitType" class="w-full bg-tactical-800 border border-tactical-700 rounded px-2 py-1 text-white">
+                            <option value="infantry">☒ Пехота / Стрелки</option>
+                            <option value="armor">⬭ Бронетехника / Танки</option>
+                            <option value="mech">☒⬭ Механизированная пехота</option>
+                            <option value="artillery">⦿ Артиллерия / РСЗО</option>
+                            <option value="hq">⚑ Штаб / Командование</option>
+                            <option value="fort">⛨ Укрепрайон / Бункер</option>
+                            <option value="battle">⚔️ Место боев / Взрыв</option>
+                            <option value="navy">⚓ Военный флот</option>
+                            <option value="air">✈️ Авиация / ПВО</option>
+                        </select>
+                    </div>
+
+                    <div id="propCityTypeRow" class="hidden">
+                        <label class="block text-[10px] text-slate-400 mb-1">Тип метки на карте:</label>
+                        <select id="propCityType" class="w-full bg-tactical-800 border border-tactical-700 rounded px-2 py-1 text-white">
+                            <option value="capital">✪ Крупный узел / Столица</option>
+                            <option value="city">● Город / Крепость</option>
+                            <option value="town">• Поселок / База / Деревня</option>
+                            <option value="sea_label">🌊 Подпись моря / Акватории</option>
+                        </select>
+                    </div>
+
+                    <div id="propRotationRow" class="hidden">
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-0.5">
+                            <span>Наклон / Поворот текста:</span>
+                            <span id="propRotationVal">0°</span>
+                        </div>
+                        <input type="range" id="propRotation" min="-90" max="90" step="5" value="0" class="w-full accent-amber-400">
+                    </div>
+
+                    <!-- Действия с полигонами и вершинами -->
+                    <div id="propPolygonActions" class="hidden pt-1 space-y-1.5 border-t border-tactical-800">
+                        <div class="text-[10px] text-slate-400">
+                            💡 <b>Совет:</b> Двойной клик по грани полигона добавляет новую вершину. Правый клик по вершине — удаляет её.
+                        </div>
+                        <button id="btnSubdividePoly" class="w-full py-1 bg-tactical-800 hover:bg-tactical-700 border border-tactical-600 rounded text-[11px] text-amber-300">
+                            ✨ Детализировать контур (+вершины)
+                        </button>
+                    </div>
+
+                    <div class="pt-2 flex gap-2 border-t border-tactical-800">
+                        <button id="btnDeleteSelected" class="flex-1 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/40 rounded font-medium">
+                            🗑️ Удалить объект
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сводная статистика контроля территории (как в DeepState) -->
+            <div class="p-3 border-b border-tactical-700">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2">
+                    Статистика контроля регионов
+                </div>
+                <div id="territoryStats" class="space-y-1.5">
+                    <!-- Заполняется автоматически -->
+                </div>
+            </div>
+
+            <!-- Быстрый список регионов и объектов из наброска -->
+            <div class="p-3 flex-1 flex flex-col min-h-0">
+                <div class="text-[10px] font-mono uppercase tracking-wider text-slate-400 mb-2 flex items-center justify-between">
+                    <span>Объекты на карте</span>
+                    <button id="btnAddSampleFront" class="text-[10px] text-emerald-400 hover:underline" title="Добавить пример линии фронта и войск для демонстрации">+ Пример боев</button>
+                </div>
+                <div id="objectListContainer" class="flex-1 overflow-y-auto space-y-1 pr-1">
+                    <!-- Список всех регионов, морей и городов -->
+                </div>
+            </div>
+
+        </aside>
+    </div>
+
+    <!-- МОДАЛЬНОЕ ОКНО НАСТРОЙКИ ФРАКЦИЙ -->
+    <div id="factionModal" class="hidden fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
+        <div class="bg-tactical-900 border border-tactical-600 rounded-lg max-w-md w-full p-4 shadow-2xl">
+            <div class="flex items-center justify-between mb-3 pb-2 border-b border-tactical-700">
+                <h3 class="font-bold text-sm text-white">Настройка сторон конфликта (Фракций)</h3>
+                <button id="btnCloseFactionModal" class="text-slate-400 hover:text-white">✕</button>
+            </div>
+            <div id="factionEditorRows" class="space-y-2 mb-4 max-h-80 overflow-y-auto"></div>
+            <div class="flex justify-end gap-2">
+                <button id="btnSaveFactions" class="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- УВЕДОМЛЕНИЕ TOAST -->
+    <div id="toastBox" class="fixed bottom-14 left-1/2 -translate-x-1/2 z-50 bg-tactical-800 border border-amber-400 text-white px-4 py-2 rounded-lg shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300 font-medium">
+        Карта обновлена
+    </div>
+
+    <!-- СЕКЦИЯ ВШИТЫХ ДАННЫХ ДЛЯ GITHUB -->
+    <script id="bakedGitHubData">
+        window.EMBEDDED_SAT_DATA_URL = null;
+        window.EMBEDDED_MAP_STATE = null;
+    </script>
+
+    <script>
+        /**************************************************************************
+         * DEEPCRAFT TACTICAL MAP ENGINE (ОРИГИНАЛЬНАЯ ПЕРВАЯ ВЕРСИЯ + СПУТНИК КЕЙРАТА)
+         **************************************************************************/
+
+        // 1. БАЗОВЫЕ ФРАКЦИИ И ЗОНЫ КОНТРОЛЯ (В стиле первой версии DeepStateMap)
+        // Прозрачность по умолчанию 0.35, чтобы сквозь регионы отлично просматривался спутниковый снимок!
+        const DEFAULT_FACTIONS = [
+            { id: 'neutral', name: 'Нейтральная / Свободная',     color: '#e2e8f0', stroke: '#0f172a', defaultOpacity: 0.18, hatched: false },
+            { id: 'blue',    name: 'Кейратский Альянс (Оборона)', color: '#2563eb', stroke: '#1d4ed8', defaultOpacity: 0.42, hatched: false },
+            { id: 'red',     name: 'Красная Коалиция (Атака)',    color: '#dc2626', stroke: '#b91c1c', defaultOpacity: 0.45, hatched: false },
+            { id: 'gray',    name: 'Серая зона (Спорная / Бои)',  color: '#94a3b8', stroke: '#64748b', defaultOpacity: 0.42, hatched: true  },
+            { id: 'green',   name: 'Освобожденная / Союзники',    color: '#16a34a', stroke: '#15803d', defaultOpacity: 0.42, hatched: false },
+            { id: 'purple',  name: 'Особый Корпус / Орден',       color: '#9333ea', stroke: '#7e22ce', defaultOpacity: 0.42, hatched: false }
+        ];
+
+        // 2. ОРИГИНАЛЬНАЯ ВЕКТОРНАЯ КАРТА ИЗ ПЕРВОЙ ВЕРСИИ (7 РЕГИОНОВ, КЕЙРАТ, УЖИ, НИЖНЕ-МОРСК, АКЛА)
+        function createInitialMapData() {
+            return {
+                waters: [
+                    {
+                        id: 'water_lower',
+                        name: 'Нижнее море',
+                        style: 'polygon',
+                        points: [
+                            {x: 120, y: 495}, {x: 125, y: 585}, {x: 118, y: 635}, 
+                            {x: 150, y: 630}, {x: 165, y: 685}, {x: 205, y: 735}, 
+                            {x: 255, y: 755}, {x: 295, y: 730}, {x: 330, y: 685}, 
+                            {x: 280, y: 650}, {x: 225, y: 650}, {x: 160, y: 575}
+                        ]
+                    },
+                    {
+                        id: 'water_great',
+                        name: 'Великое море',
+                        style: 'polygon',
+                        points: [
+                            {x: 850, y: 380}, {x: 885, y: 435}, {x: 895, y: 465}, 
+                            {x: 855, y: 515}, {x: 825, y: 560}, {x: 825, y: 615}, 
+                            {x: 785, y: 645}, {x: 730, y: 645}, {x: 760, y: 600}, 
+                            {x: 790, y: 520}, {x: 840, y: 435}
+                        ]
+                    },
+                    {
+                        id: 'water_ne_coast',
+                        name: 'Северо-Восточный рубеж',
+                        style: 'coastline',
+                        points: [
+                            {x: 580, y: 28}, {x: 640, y: 38}, {x: 685, y: 65}, 
+                            {x: 735, y: 130}, {x: 765, y: 215}, {x: 785, y: 295}, {x: 805, y: 342}
+                        ]
+                    }
+                ],
+                regions: [
+                    // 1. Северный крупный регион (Кейратский округ)
+                    {
+                        id: 'reg_keirat',
+                        name: 'Кейратский округ (Север)',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 425, y: 55}, {x: 495, y: 35}, {x: 555, y: 25}, 
+                            {x: 605, y: 45}, {x: 620, y: 115}, {x: 685, y: 135}, 
+                            {x: 730, y: 185}, {x: 750, y: 265}, {x: 745, y: 270},
+                            {x: 705, y: 245}, {x: 670, y: 300}, {x: 670, y: 350}, 
+                            {x: 620, y: 340}, {x: 565, y: 345}, {x: 520, y: 375}, 
+                            {x: 480, y: 365}, {x: 400, y: 335}, {x: 385, y: 290}, 
+                            {x: 392, y: 225}, {x: 410, y: 180}, {x: 415, y: 110}
+                        ]
+                    },
+                    // 2. Северо-западный регион
+                    {
+                        id: 'reg_nw',
+                        name: 'Западное Приграничье',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 410, y: 180}, {x: 355, y: 145}, {x: 310, y: 150}, 
+                            {x: 245, y: 195}, {x: 165, y: 250}, {x: 65, y: 295}, 
+                            {x: 70, y: 335}, {x: 100, y: 385}, {x: 135, y: 435}, 
+                            {x: 185, y: 405}, {x: 250, y: 400}, {x: 300, y: 405}, 
+                            {x: 340, y: 420}, {x: 360, y: 350}, {x: 400, y: 335}, 
+                            {x: 385, y: 290}, {x: 392, y: 225}
+                        ]
+                    },
+                    // 3. Юго-западный регион (Нижне-морский округ)
+                    {
+                        id: 'reg_lower_sea',
+                        name: 'Нижне-морский округ',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 135, y: 435}, {x: 120, y: 495}, {x: 160, y: 575}, 
+                            {x: 225, y: 650}, {x: 280, y: 650}, {x: 330, y: 685}, 
+                            {x: 385, y: 625}, {x: 435, y: 680}, {x: 445, y: 560}, 
+                            {x: 420, y: 515}, {x: 360, y: 490}, {x: 325, y: 440}, 
+                            {x: 300, y: 405}, {x: 250, y: 400}, {x: 185, y: 405}
+                        ]
+                    },
+                    // 4. Центрально-западный регион
+                    {
+                        id: 'reg_center_west',
+                        name: 'Срединная Долина',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 400, y: 335}, {x: 480, y: 365}, {x: 465, y: 420}, 
+                            {x: 450, y: 470}, {x: 530, y: 500}, {x: 520, y: 595}, 
+                            {x: 475, y: 650}, {x: 455, y: 690}, {x: 435, y: 680}, 
+                            {x: 445, y: 560}, {x: 420, y: 515}, {x: 360, y: 490}, 
+                            {x: 325, y: 440}, {x: 340, y: 420}, {x: 360, y: 350}
+                        ]
+                    },
+                    // 5. Центрально-восточный регион
+                    {
+                        id: 'reg_center_east',
+                        name: 'Центральное Плато',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 480, y: 365}, {x: 520, y: 375}, {x: 565, y: 345}, 
+                            {x: 620, y: 340}, {x: 630, y: 455}, {x: 680, y: 490}, 
+                            {x: 580, y: 585}, {x: 540, y: 595}, {x: 520, y: 595}, 
+                            {x: 530, y: 500}, {x: 450, y: 470}, {x: 465, y: 420}
+                        ]
+                    },
+                    // 6. Восточный внутренний регион
+                    {
+                        id: 'reg_east_inner',
+                        name: 'Верхне-Восточный уезд',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 620, y: 340}, {x: 670, y: 350}, {x: 670, y: 300}, 
+                            {x: 705, y: 245}, {x: 745, y: 270}, {x: 780, y: 330}, 
+                            {x: 740, y: 360}, {x: 720, y: 400}, {x: 695, y: 455}, 
+                            {x: 680, y: 490}, {x: 630, y: 455}
+                        ]
+                    },
+                    // 7. Юго-восточный прибрежный регион
+                    {
+                        id: 'reg_se_coast',
+                        name: 'Великоморский край',
+                        faction: 'neutral',
+                        opacity: 0.20,
+                        hatched: false,
+                        points: [
+                            {x: 780, y: 330}, {x: 805, y: 342}, {x: 850, y: 380}, 
+                            {x: 840, y: 435}, {x: 790, y: 520}, {x: 760, y: 600}, 
+                            {x: 730, y: 645}, {x: 645, y: 625}, {x: 540, y: 595}, 
+                            {x: 580, y: 585}, {x: 680, y: 490}, {x: 695, y: 455}, 
+                            {x: 720, y: 400}, {x: 740, y: 360}
+                        ]
+                    }
+                ],
+                fronts: [],
+                cities: [
+                    { id: 'c_keirat', name: 'Кейрат', x: 476, y: 65, cityType: 'city', rotation: 0 },
+                    { id: 'c_uzhi', name: 'Ужи', x: 565, y: 135, cityType: 'capital', rotation: 0 },
+                    { id: 'c_nizhnemorsk', name: 'Нижне-морск', x: 230, y: 605, cityType: 'city', rotation: 0 },
+                    { id: 'c_akla', name: 'Акла', x: 272, y: 660, cityType: 'town', rotation: 0 },
+                    { id: 'c_nw_dot', name: 'Западный Пост', x: 297, y: 347, cityType: 'town', rotation: 0 },
+                    { id: 'c_cw_dot', name: 'Перекресток', x: 422, y: 455, cityType: 'town', rotation: 0 },
+                    { id: 'c_ce_dot', name: 'Вышка', x: 558, y: 372, cityType: 'town', rotation: 0 },
+                    { id: 'c_ei_dot', name: 'Восточный Форт', x: 681, y: 368, cityType: 'town', rotation: 0 },
+                    { id: 'c_se_dot', name: 'Маяк', x: 681, y: 552, cityType: 'town', rotation: 0 },
+                    { id: 'lbl_lower_sea', name: 'Нижнее море', x: 210, y: 655, cityType: 'sea_label', rotation: 45 },
+                    { id: 'lbl_great_sea', name: 'Великое море', x: 822, y: 515, cityType: 'sea_label', rotation: -55 }
+                ],
+                units: [],
+                arrows: []
+            };
+        }
+
+        // 3. ГЛОБАЛЬНОЕ СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+        const state = {
+            factions: JSON.parse(JSON.stringify(DEFAULT_FACTIONS)),
+            snapshots: [
+                {
+                    id: 'snap_1',
+                    title: 'День 1 — Исходная карта',
+                    timestamp: new Date().toLocaleDateString('ru-RU'),
+                    data: createInitialMapData()
+                }
+            ],
+            currentSnapIndex: 0,
+
+            camera: { x: 40, y: 15, zoom: 0.92 },
+            isPanning: false,
+            spacePressed: false,
+            panStart: { x: 0, y: 0 },
+            mouseWorld: { x: 0, y: 0 },
+
+            activeTool: 'select',
+            activeFactionId: 'blue',
+            activeUnitType: 'infantry',
+
+            selected: null,
+            draggingVertex: null,
+            draggingObject: null,
+
+            drawingPoints: [],
+            rulerStart: null,
+            rulerEnd: null,
+
+            layers: {
+                sat: true,
+                water: true,
+                regions: true,
+                fronts: true,
+                cities: true,
+                arrows: true,
+                units: true,
+                grid: true,
+                snap: true,
+                smooth: false
+            },
+
+            refImage: {
+                img: null,
+                dataUrl: null,
+                visible: true,
+                alpha: 1.0,
+                fitToSheet: true
+            }
+        };
+
+        // Загрузка сохранённого состояния из вшитого скрипта или localStorage
+        if (window.EMBEDDED_MAP_STATE) {
+            try {
+                state.factions = window.EMBEDDED_MAP_STATE.factions || state.factions;
+                state.snapshots = window.EMBEDDED_MAP_STATE.snapshots || state.snapshots;
+            } catch (e) {}
+        } else {
+            const savedLocal = localStorage.getItem('deepcraft_original_v1_state');
+            if (savedLocal) {
+                try {
+                    const parsed = JSON.parse(savedLocal);
+                    if (parsed.factions && parsed.snapshots) {
+                        state.factions = parsed.factions;
+                        state.snapshots = parsed.snapshots;
+                    }
+                } catch (e) {}
+            }
+        }
+
+        function saveToLocalStorage() {
+            try {
+                localStorage.setItem('deepcraft_original_v1_state', JSON.stringify({
+                    factions: state.factions,
+                    snapshots: state.snapshots
+                }));
+            } catch (e) {}
+        }
+
+        function currentData() {
+            return state.snapshots[state.currentSnapIndex].data;
+        }
+
+        // 4. ДЕТАЛЬНЫЙ ВСТРОЕННЫЙ СПУТНИКОВЫЙ СНИМОК МАЙНКРАФТА (ЧТОБЫ ОН БЫЛ ВИДЕН СРАЗУ ДАЖЕ БЕЗ ВНЕШНЕГО ФАЙЛА)
+        const proceduralSatCanvas = document.createElement('canvas');
+        proceduralSatCanvas.width = 940;
+        proceduralSatCanvas.height = 770;
+
+        function generateProceduralSatellite() {
+            const sctx = proceduralSatCanvas.getContext('2d');
+            // Океан
+            sctx.fillStyle = '#25567b';
+            sctx.fillRect(0, 0, 940, 770);
+
+            // Зеленый континент по форме снимка
+            sctx.fillStyle = '#4d743b';
+            sctx.beginPath();
+            sctx.moveTo(0, 0); sctx.lineTo(275, 0); sctx.lineTo(310, 125);
+            sctx.lineTo(465, 175); sctx.lineTo(510, 110); sctx.lineTo(645, 35);
+            sctx.lineTo(765, 85); sctx.lineTo(845, 240); sctx.lineTo(920, 290);
+            sctx.lineTo(930, 770); sctx.lineTo(0, 770); sctx.lineTo(0, 560);
+            sctx.lineTo(90, 520); sctx.lineTo(65, 330); sctx.lineTo(20, 260);
+            sctx.closePath();
+            sctx.fill();
+
+            // Снежная гора между карьером и терминалом
+            sctx.fillStyle = '#d8e2dc';
+            sctx.beginPath();
+            sctx.arc(290, 255, 58, 0, Math.PI * 2);
+            sctx.fill();
+
+            // Оранжевый каньон Меса на северо-востоке
+            sctx.fillStyle = '#c25b28';
+            sctx.beginPath();
+            sctx.moveTo(510, 185); sctx.lineTo(745, 155); sctx.lineTo(775, 285);
+            sctx.lineTo(705, 390); sctx.lineTo(585, 340); sctx.lineTo(515, 265);
+            sctx.closePath();
+            sctx.fill();
+
+            // Рыжий хребет в центре
+            sctx.fillStyle = '#d96b27';
+            sctx.beginPath();
+            sctx.ellipse(385, 355, 65, 26, -0.12, 0, Math.PI * 2);
+            sctx.fill();
+
+            // Пустыня на востоке
+            sctx.fillStyle = '#e7deb8';
+            sctx.beginPath();
+            sctx.moveTo(710, 385); sctx.lineTo(920, 290); sctx.lineTo(930, 770);
+            sctx.lineTo(735, 770); sctx.lineTo(735, 600); sctx.lineTo(665, 565);
+            sctx.closePath();
+            sctx.fill();
+
+            // Круглый зеленый лес на СВ
+            sctx.fillStyle = '#335526';
+            sctx.beginPath();
+            sctx.arc(815, 275, 55, 0, Math.PI * 2);
+            sctx.fill();
+
+            // Речная сеть
+            sctx.strokeStyle = '#295b8a';
+            sctx.lineWidth = 9;
+            sctx.lineCap = 'round';
+            sctx.lineJoin = 'round';
+            sctx.beginPath();
+            sctx.moveTo(475, 195); sctx.lineTo(465, 295); sctx.lineTo(500, 390);
+            sctx.lineTo(395, 465); sctx.lineTo(340, 580); sctx.lineTo(340, 765);
+            sctx.moveTo(395, 465); sctx.lineTo(240, 585); sctx.lineTo(120, 595);
+            sctx.stroke();
+
+            // Северо-западный агрокомплекс и карьер
+            sctx.fillStyle = '#64748b';
+            sctx.fillRect(80, 200, 155, 125);
+            sctx.fillStyle = '#1e293b';
+            sctx.fillRect(170, 180, 62, 50);
+
+            // Круглая площадь Цитадели на западе
+            sctx.fillStyle = '#94a3b8';
+            sctx.fillRect(135, 345, 60, 60);
+            sctx.strokeStyle = '#2563eb';
+            sctx.lineWidth = 3;
+            sctx.beginPath();
+            sctx.arc(165, 375, 17, 0, Math.PI * 2);
+            sctx.stroke();
+
+            // Северный терминал с красно-белой крышей и мостом
+            sctx.fillStyle = '#94a3b8';
+            sctx.fillRect(342, 195, 82, 65);
+            sctx.fillStyle = '#ffffff';
+            sctx.fillRect(352, 210, 25, 30);
+            sctx.fillStyle = '#b91c1c';
+            sctx.fillRect(377, 210, 40, 30);
+            sctx.fillStyle = '#334155';
+            sctx.fillRect(424, 242, 22, 78);
+
+            // Морская арена на севере
+            sctx.fillStyle = '#9a7b56';
+            sctx.beginPath();
+            sctx.ellipse(395, 38, 26, 15, 0, 0, Math.PI * 2);
+            sctx.fill();
+
+            // Восточный пустынный комплекс
+            sctx.fillStyle = '#475569';
+            sctx.fillRect(795, 475, 38, 88);
+
+            // Южный заснеженный городской квартал
+            sctx.fillStyle = '#d8e2dc';
+            sctx.fillRect(355, 575, 165, 145);
+        }
+        generateProceduralSatellite();
+
+        // Автозагрузка реального скриншота из GitHub репозитория или localStorage
+        function autoLoadSatelliteImage() {
+            if (window.EMBEDDED_SAT_DATA_URL) {
+                const img = new Image();
+                img.onload = () => { state.refImage.img = img; state.refImage.dataUrl = window.EMBEDDED_SAT_DATA_URL; render(); };
+                img.src = window.EMBEDDED_SAT_DATA_URL;
+                return;
+            }
+            const cachedSat = localStorage.getItem('deepcraft_sat_img_v1');
+            if (cachedSat) {
+                const img = new Image();
+                img.onload = () => { state.refImage.img = img; state.refImage.dataUrl = cachedSat; render(); };
+                img.src = cachedSat;
+            }
+            // Проверяем файлы в папке репозитория GitHub
+            const candidates = ['map.jpg', 'map.png', 'изображение_4.jpg', 'изображение_3.jpg', 'изображение_2.jpg', 'изображение.jpg', 'keirat.jpg', 'keirat.png'];
+            candidates.forEach(file => {
+                const probe = new Image();
+                probe.crossOrigin = 'anonymous';
+                probe.onload = () => {
+                    state.refImage.img = probe;
+                    render();
+                };
+                probe.src = file;
+            });
+        }
+
+        // 5. ИНИЦИАЛИЗАЦИЯ CANVAS И ПАТТЕРНОВ ШТРИХОВКИ
+        const canvas = document.getElementById('mapCanvas');
+        const ctx = canvas.getContext('2d');
+        const hatchPatterns = {};
+
+        function buildHatchPattern(colorHex) {
+            if (hatchPatterns[colorHex]) return hatchPatterns[colorHex];
+            const pCanvas = document.createElement('canvas');
+            pCanvas.width = 12;
+            pCanvas.height = 12;
+            const pCtx = pCanvas.getContext('2d');
+
+            pCtx.strokeStyle = colorHex;
+            pCtx.lineWidth = 2.5;
+            pCtx.beginPath();
+            pCtx.moveTo(0, 12);
+            pCtx.lineTo(12, 0);
+            pCtx.moveTo(-6, 6);
+            pCtx.lineTo(6, -6);
+            pCtx.moveTo(6, 18);
+            pCtx.lineTo(18, 6);
+            pCtx.stroke();
+
+            hatchPatterns[colorHex] = ctx.createPattern(pCanvas, 'repeat');
+            return hatchPatterns[colorHex];
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            render();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function screenToWorld(sx, sy) {
+            return {
+                x: Math.round((sx - state.camera.x) / state.camera.zoom),
+                y: Math.round((sy - state.camera.y) / state.camera.zoom)
+            };
+        }
+
+        function getFaction(id) {
+            return state.factions.find(f => f.id === id) || state.factions[0];
+        }
+
+        function hexToRgba(hex, alpha) {
+            const clean = hex.replace('#', '');
+            const r = parseInt(clean.substring(0, 2), 16) || 200;
+            const g = parseInt(clean.substring(2, 4), 16) || 200;
+            const b = parseInt(clean.substring(4, 6), 16) || 200;
+            return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        }
+
+        // 6. ОТРИСОВКА ВЕКТОРНОЙ КАРТЫ (ПЕРВАЯ ВЕРСИЯ ПОВЕРХ СПУТНИКОВОГО СНИМКА)
+        function drawPolygonPath(targetCtx, points, close = true, smooth = false) {
+            if (!points || points.length === 0) return;
+            targetCtx.beginPath();
+            if (!smooth || points.length < 3) {
+                targetCtx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) {
+                    targetCtx.lineTo(points[i].x, points[i].y);
+                }
+                if (close) targetCtx.closePath();
+            } else {
+                const len = points.length;
+                const startMid = {
+                    x: (points[0].x + points[1].x) / 2,
+                    y: (points[0].y + points[1].y) / 2
+                };
+                targetCtx.moveTo(startMid.x, startMid.y);
+                for (let i = 1; i < len; i++) {
+                    const p1 = points[i];
+                    const p2 = points[(i + 1) % len];
+                    if (!close && i === len - 1) {
+                        targetCtx.lineTo(p1.x, p1.y);
+                        break;
+                    }
+                    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+                    targetCtx.quadraticCurveTo(p1.x, p1.y, mid.x, mid.y);
+                }
+                if (close) {
+                    const pLast = points[0];
+                    targetCtx.quadraticCurveTo(pLast.x, pLast.y, startMid.x, startMid.y);
+                    targetCtx.closePath();
+                }
+            }
+        }
+
+        function drawMilitaryUnit(targetCtx, unit, isSelected) {
+            const faction = getFaction(unit.faction);
+            targetCtx.save();
+            targetCtx.translate(unit.x, unit.y);
+
+            const w = 34;
+            const h = 24;
+
+            if (isSelected) {
+                targetCtx.shadowColor = '#eab308';
+                targetCtx.shadowBlur = 14;
+            } else {
+                targetCtx.shadowColor = 'rgba(0,0,0,0.65)';
+                targetCtx.shadowBlur = 6;
+            }
+
+            targetCtx.fillStyle = '#0f172a';
+            targetCtx.strokeStyle = faction.color;
+            targetCtx.lineWidth = isSelected ? 3 : 2.2;
+
+            targetCtx.beginPath();
+            targetCtx.rect(-w/2, -h/2, w, h);
+            targetCtx.fill();
+            targetCtx.stroke();
+
+            targetCtx.fillStyle = hexToRgba(faction.color, 0.28);
+            targetCtx.fillRect(-w/2, -h/2, w, h);
+
+            targetCtx.shadowBlur = 0;
+            targetCtx.strokeStyle = '#ffffff';
+            targetCtx.fillStyle = '#ffffff';
+            targetCtx.lineWidth = 1.8;
+
+            switch (unit.unitType) {
+                case 'infantry':
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-w/2, -h/2); targetCtx.lineTo(w/2, h/2);
+                    targetCtx.moveTo(w/2, -h/2); targetCtx.lineTo(-w/2, h/2);
+                    targetCtx.stroke();
+                    break;
+                case 'armor':
+                    targetCtx.beginPath();
+                    targetCtx.ellipse(0, 0, 10, 5.5, 0, 0, Math.PI * 2);
+                    targetCtx.stroke();
+                    break;
+                case 'mech':
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-w/2, -h/2); targetCtx.lineTo(w/2, h/2);
+                    targetCtx.moveTo(w/2, -h/2); targetCtx.lineTo(-w/2, h/2);
+                    targetCtx.stroke();
+                    targetCtx.beginPath();
+                    targetCtx.ellipse(0, 0, 9, 5, 0, 0, Math.PI * 2);
+                    targetCtx.stroke();
+                    break;
+                case 'artillery':
+                    targetCtx.beginPath();
+                    targetCtx.arc(0, 0, 4.5, 0, Math.PI * 2);
+                    targetCtx.fill();
+                    break;
+                case 'hq':
+                    targetCtx.fillStyle = faction.color;
+                    targetCtx.fillRect(-w/2, -h/2, w, 5);
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-w/2, h/2);
+                    targetCtx.lineTo(-w/2, h/2 + 12);
+                    targetCtx.strokeStyle = faction.color;
+                    targetCtx.lineWidth = 2.5;
+                    targetCtx.stroke();
+                    targetCtx.fillStyle = '#fff';
+                    targetCtx.font = 'bold 9px JetBrains Mono';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.fillText('ШТАБ', 0, 5);
+                    break;
+                case 'fort':
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(-11, 5); targetCtx.lineTo(-11, -4);
+                    targetCtx.lineTo(-5, -4); targetCtx.lineTo(-5, 2);
+                    targetCtx.lineTo(5, 2); targetCtx.lineTo(5, -4);
+                    targetCtx.lineTo(11, -4); targetCtx.lineTo(11, 5);
+                    targetCtx.stroke();
+                    break;
+                case 'battle':
+                    targetCtx.font = '14px sans-serif';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.textBaseline = 'middle';
+                    targetCtx.fillText('💥', 0, 1);
+                    break;
+                case 'navy':
+                    targetCtx.font = '13px sans-serif';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.textBaseline = 'middle';
+                    targetCtx.fillText('⚓', 0, 1);
+                    break;
+                case 'air':
+                    targetCtx.font = '13px sans-serif';
+                    targetCtx.textAlign = 'center';
+                    targetCtx.textBaseline = 'middle';
+                    targetCtx.fillText('✈️', 0, 1);
+                    break;
+            }
+
+            if (unit.name) {
+                targetCtx.font = 'bold 10px Inter';
+                const textW = targetCtx.measureText(unit.name).width;
+                targetCtx.fillStyle = 'rgba(10, 13, 14, 0.85)';
+                targetCtx.fillRect(-textW/2 - 4, h/2 + 3, textW + 8, 14);
+                targetCtx.fillStyle = '#f8fafc';
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'top';
+                targetCtx.fillText(unit.name, 0, h/2 + 4.5);
+            }
+
+            targetCtx.restore();
+        }
+
+        function drawTacticalArrow(targetCtx, arrow, isSelected) {
+            if (!arrow.points || arrow.points.length < 2) return;
+            const faction = getFaction(arrow.faction);
+            targetCtx.save();
+
+            const pts = arrow.points;
+            const last = pts[pts.length - 1];
+            const prev = pts[pts.length - 2];
+            const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+
+            if (isSelected) {
+                targetCtx.shadowColor = '#eab308';
+                targetCtx.shadowBlur = 10;
+            } else {
+                targetCtx.shadowColor = 'rgba(0,0,0,0.5)';
+                targetCtx.shadowBlur = 4;
+            }
+
+            targetCtx.beginPath();
+            targetCtx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y);
+            targetCtx.strokeStyle = '#0f172a';
+            targetCtx.lineWidth = arrow.style === 'defense' ? 7 : 9;
+            targetCtx.lineCap = 'round';
+            targetCtx.lineJoin = 'round';
+            if (arrow.style === 'dashed') targetCtx.setLineDash([12, 8]);
+            targetCtx.stroke();
+
+            targetCtx.beginPath();
+            targetCtx.moveTo(pts[0].x, pts[0].y);
+            for (let i = 1; i < pts.length; i++) targetCtx.lineTo(pts[i].x, pts[i].y);
+            targetCtx.strokeStyle = faction.color;
+            targetCtx.lineWidth = arrow.style === 'defense' ? 4 : 5.5;
+            targetCtx.stroke();
+            targetCtx.setLineDash([]);
+
+            if (arrow.style === 'defense') {
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const p1 = pts[i], p2 = pts[i+1];
+                    const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    const segAngle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                    const steps = Math.floor(dist / 22);
+                    for (let s = 1; s <= steps; s++) {
+                        const t = s / (steps + 1);
+                        const tx = p1.x + (p2.x - p1.x) * t;
+                        const ty = p1.y + (p2.y - p1.y) * t;
+                        targetCtx.save();
+                        targetCtx.translate(tx, ty);
+                        targetCtx.rotate(segAngle);
+                        targetCtx.fillStyle = faction.color;
+                        targetCtx.fillRect(-4, -9, 8, 7);
+                        targetCtx.restore();
+                    }
+                }
+            } else {
+                const headLen = 18;
+                targetCtx.translate(last.x, last.y);
+                targetCtx.rotate(angle);
+                targetCtx.beginPath();
+                targetCtx.moveTo(4, 0);
+                targetCtx.lineTo(-headLen, -headLen * 0.65);
+                targetCtx.lineTo(-headLen * 0.65, 0);
+                targetCtx.lineTo(-headLen, headLen * 0.65);
+                targetCtx.closePath();
+                targetCtx.fillStyle = faction.color;
+                targetCtx.strokeStyle = '#0f172a';
+                targetCtx.lineWidth = 2;
+                targetCtx.fill();
+                targetCtx.stroke();
+            }
+
+            targetCtx.restore();
+        }
+
+        function renderScene(targetCtx, width, height, isExport = false) {
+            const data = currentData();
+            targetCtx.save();
+
+            // 1. Фон холста
+            targetCtx.fillStyle = isExport ? '#111618' : '#0c1114';
+            targetCtx.fillRect(0, 0, width, height);
+
+            if (!isExport) {
+                targetCtx.translate(state.camera.x, state.camera.y);
+                targetCtx.scale(state.camera.zoom, state.camera.zoom);
+            }
+
+            // 2. Подложка бумажного листа карты (область 940x770 с отступом 20,10)
+            targetCtx.fillStyle = '#f8fafc';
+            targetCtx.shadowColor = 'rgba(0,0,0,0.7)';
+            targetCtx.shadowBlur = 25;
+            targetCtx.fillRect(20, 10, 940, 770);
+            targetCtx.shadowBlur = 0;
+
+            // 3. СПУТНИКОВЫЙ СНИМОК МАЙНКРАФТА (Отображается и на экране, и при экспорте PNG!)
+            if (state.layers.sat && state.refImage.visible) {
+                targetCtx.save();
+                targetCtx.globalAlpha = state.refImage.alpha;
+                const sourceImg = state.refImage.img || proceduralSatCanvas;
+                if (state.refImage.fitToSheet) {
+                    targetCtx.drawImage(sourceImg, 20, 10, 940, 770);
+                } else {
+                    targetCtx.drawImage(sourceImg, 20, 10);
+                }
+                targetCtx.restore();
+            }
+
+            // 4. Водные объекты (Нижнее море, Великое море, СВ водная граница)
+            if (state.layers.water) {
+                data.waters.forEach(water => {
+                    const isSel = !isExport && state.selected && state.selected.id === water.id;
+                    targetCtx.save();
+                    if (water.style === 'coastline') {
+                        drawPolygonPath(targetCtx, water.points, false, state.layers.smooth);
+                        targetCtx.strokeStyle = isSel ? '#eab308' : '#1d4ed8';
+                        targetCtx.lineWidth = 4.5;
+                        targetCtx.lineCap = 'round';
+                        targetCtx.stroke();
+                    } else {
+                        drawPolygonPath(targetCtx, water.points, true, state.layers.smooth);
+                        targetCtx.fillStyle = 'rgba(59, 130, 246, 0.28)';
+                        targetCtx.fill();
+                        targetCtx.strokeStyle = isSel ? '#eab308' : '#1d4ed8';
+                        targetCtx.lineWidth = 4;
+                        targetCtx.lineJoin = 'round';
+                        targetCtx.stroke();
+                    }
+                    targetCtx.restore();
+                });
+            }
+
+            // 5. Базовые 7 регионов материка поверх спутникового снимка
+            if (state.layers.regions) {
+                data.regions.forEach(reg => {
+                    const faction = getFaction(reg.faction);
+                    const isSel = !isExport && state.selected && state.selected.id === reg.id;
+                    targetCtx.save();
+                    drawPolygonPath(targetCtx, reg.points, true, state.layers.smooth);
+
+                    targetCtx.fillStyle = hexToRgba(faction.color, reg.opacity ?? faction.defaultOpacity);
+                    targetCtx.fill();
+
+                    if (reg.hatched || faction.hatched) {
+                        targetCtx.fillStyle = buildHatchPattern(faction.stroke);
+                        targetCtx.fill();
+                    }
+
+                    // Жирные черные границы регионов (как в самой первой версии!)
+                    targetCtx.strokeStyle = isSel ? '#eab308' : '#0f172a';
+                    targetCtx.lineWidth = isSel ? 6 : 5;
+                    targetCtx.lineJoin = 'round';
+                    targetCtx.lineCap = 'round';
+                    targetCtx.stroke();
+                    targetCtx.restore();
+                });
+            }
+
+            // 6. Полигоны линии фронта (DeepState зоны контроля поверх регионов)
+            if (state.layers.fronts) {
+                data.fronts.forEach(front => {
+                    const faction = getFaction(front.faction);
+                    const isSel = !isExport && state.selected && state.selected.id === front.id;
+                    targetCtx.save();
+                    drawPolygonPath(targetCtx, front.points, true, state.layers.smooth);
+
+                    targetCtx.fillStyle = hexToRgba(faction.color, front.opacity ?? 0.45);
+                    targetCtx.fill();
+
+                    if (front.hatched || faction.hatched) {
+                        targetCtx.fillStyle = buildHatchPattern(faction.color);
+                        targetCtx.fill();
+                    }
+
+                    targetCtx.strokeStyle = isSel ? '#eab308' : faction.stroke;
+                    targetCtx.lineWidth = isSel ? 3.5 : 2.5;
+                    targetCtx.setLineDash([8, 5]);
+                    targetCtx.stroke();
+                    targetCtx.restore();
+                });
+            }
+
+            // 7. Тактическая координатная сетка поверх суши
+            if (state.layers.grid) {
+                targetCtx.save();
+                targetCtx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+                targetCtx.lineWidth = 1;
+                for (let gx = 20; gx <= 960; gx += 50) {
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(gx, 10);
+                    targetCtx.lineTo(gx, 780);
+                    targetCtx.stroke();
+                }
+                for (let gy = 10; gy <= 780; gy += 50) {
+                    targetCtx.beginPath();
+                    targetCtx.moveTo(20, gy);
+                    targetCtx.lineTo(960, gy);
+                    targetCtx.stroke();
+                }
+                targetCtx.restore();
+            }
+
+            // 8. Города, поселения и надписи морей
+            if (state.layers.cities) {
+                data.cities.forEach(city => {
+                    const isSel = !isExport && state.selected && state.selected.id === city.id;
+                    targetCtx.save();
+                    targetCtx.translate(city.x, city.y);
+                    if (city.rotation) {
+                        targetCtx.rotate((city.rotation * Math.PI) / 180);
+                    }
+
+                    if (city.cityType === 'sea_label') {
+                        targetCtx.font = '700 18px Inter';
+                        targetCtx.strokeStyle = 'rgba(248, 250, 252, 0.85)';
+                        targetCtx.lineWidth = 3.5;
+                        targetCtx.textAlign = 'center';
+                        targetCtx.textBaseline = 'middle';
+                        targetCtx.strokeText(city.name, 0, 0);
+                        targetCtx.fillStyle = isSel ? '#eab308' : '#0f172a';
+                        targetCtx.fillText(city.name, 0, 0);
+                    } else if (city.cityType === 'capital') {
+                        targetCtx.beginPath();
+                        targetCtx.arc(0, 0, 6.5, 0, Math.PI * 2);
+                        targetCtx.fillStyle = isSel ? '#eab308' : '#0f172a';
+                        targetCtx.fill();
+                        targetCtx.beginPath();
+                        targetCtx.arc(0, 0, 2.2, 0, Math.PI * 2);
+                        targetCtx.fillStyle = '#ffffff';
+                        targetCtx.fill();
+
+                        targetCtx.font = '800 19px Inter';
+                        targetCtx.textAlign = 'center';
+                        targetCtx.strokeStyle = '#f8fafc';
+                        targetCtx.lineWidth = 4;
+                        targetCtx.strokeText(city.name, 0, 25);
+                        targetCtx.fillStyle = '#0f172a';
+                        targetCtx.fillText(city.name, 0, 25);
+                    } else if (city.cityType === 'city') {
+                        targetCtx.beginPath();
+                        targetCtx.arc(0, 0, 4.5, 0, Math.PI * 2);
+                        targetCtx.fillStyle = isSel ? '#eab308' : '#0f172a';
+                        targetCtx.fill();
+
+                        targetCtx.font = '800 17px Inter';
+                        targetCtx.textAlign = 'center';
+                        targetCtx.strokeStyle = '#f8fafc';
+                        targetCtx.lineWidth = 3.5;
+                        targetCtx.strokeText(city.name, 10, 22);
+                        targetCtx.fillStyle = '#0f172a';
+                        targetCtx.fillText(city.name, 10, 22);
+                    } else {
+                        targetCtx.beginPath();
+                        targetCtx.arc(0, 0, 3.8, 0, Math.PI * 2);
+                        targetCtx.fillStyle = isSel ? '#eab308' : '#0f172a';
+                        targetCtx.fill();
+
+                        if (city.name) {
+                            targetCtx.font = '700 12px Inter';
+                            targetCtx.textAlign = 'center';
+                            targetCtx.strokeStyle = '#f8fafc';
+                            targetCtx.lineWidth = 3;
+                            targetCtx.strokeText(city.name, 0, -10);
+                            targetCtx.fillStyle = '#0f172a';
+                            targetCtx.fillText(city.name, 0, -10);
+                        }
+                    }
+
+                    targetCtx.restore();
+                });
+            }
+
+            // 9. Стрелки наступления и рубежи обороны
+            if (state.layers.arrows) {
+                data.arrows.forEach(arr => {
+                    const isSel = !isExport && state.selected && state.selected.id === arr.id;
+                    drawTacticalArrow(targetCtx, arr, isSel);
+                });
+            }
+
+            // 10. Военные значки отрядов НАТО
+            if (state.layers.units) {
+                data.units.forEach(unit => {
+                    const isSel = !isExport && state.selected && state.selected.id === unit.id;
+                    drawMilitaryUnit(targetCtx, unit, isSel);
+                });
+            }
+
+            // 11. Отрисовка редактируемых узлов (вершин) выбранного полигона
+            if (!isExport && state.selected) {
+                const selObj = findObjectById(state.selected.id);
+                if (selObj && selObj.points) {
+                    selObj.points.forEach((pt, idx) => {
+                        targetCtx.save();
+                        targetCtx.beginPath();
+                        targetCtx.arc(pt.x, pt.y, 5.5 / Math.sqrt(state.camera.zoom), 0, Math.PI * 2);
+                        targetCtx.fillStyle = (state.selected.vertexIndex === idx) ? '#ef4444' : '#eab308';
+                        targetCtx.strokeStyle = '#0f172a';
+                        targetCtx.lineWidth = 2;
+                        targetCtx.fill();
+                        targetCtx.stroke();
+                        targetCtx.restore();
+                    });
+                }
+            }
+
+            // 12. Отрисовка незавершенного нового полигона или стрелки
+            if (!isExport && state.drawingPoints.length > 0) {
+                targetCtx.save();
+                targetCtx.beginPath();
+                targetCtx.moveTo(state.drawingPoints[0].x, state.drawingPoints[0].y);
+                for (let i = 1; i < state.drawingPoints.length; i++) {
+                    targetCtx.lineTo(state.drawingPoints[i].x, state.drawingPoints[i].y);
+                }
+                targetCtx.lineTo(state.mouseWorld.x, state.mouseWorld.y);
+                targetCtx.strokeStyle = '#eab308';
+                targetCtx.lineWidth = 2.5;
+                targetCtx.setLineDash([6, 4]);
+                targetCtx.stroke();
+
+                state.drawingPoints.forEach(p => {
+                    targetCtx.beginPath();
+                    targetCtx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+                    targetCtx.fillStyle = '#eab308';
+                    targetCtx.fill();
+                });
+                targetCtx.restore();
+            }
+
+            // 13. Отрисовка тактической линейки-дальномера
+            if (!isExport && state.activeTool === 'ruler' && state.rulerStart && state.rulerEnd) {
+                const p1 = state.rulerStart;
+                const p2 = state.rulerEnd;
+                const distPx = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                const mcScale = parseFloat(document.getElementById('mcScaleInput').value) || 4;
+                const blocks = Math.round(distPx * mcScale);
+
+                targetCtx.save();
+                targetCtx.beginPath();
+                targetCtx.moveTo(p1.x, p1.y);
+                targetCtx.lineTo(p2.x, p2.y);
+                targetCtx.strokeStyle = '#eab308';
+                targetCtx.lineWidth = 3;
+                targetCtx.setLineDash([8, 4]);
+                targetCtx.stroke();
+
+                const midX = (p1.x + p2.x) / 2;
+                const midY = (p1.y + p2.y) / 2;
+                const label = `📏 ${blocks} блоков (${(blocks/1000).toFixed(2)} км)`;
+                targetCtx.font = 'bold 13px JetBrains Mono';
+                const tw = targetCtx.measureText(label).width;
+                targetCtx.fillStyle = '#0f172a';
+                targetCtx.fillRect(midX - tw/2 - 8, midY - 14, tw + 16, 24);
+                targetCtx.strokeStyle = '#eab308';
+                targetCtx.setLineDash([]);
+                targetCtx.strokeRect(midX - tw/2 - 8, midY - 14, tw + 16, 24);
+                targetCtx.fillStyle = '#eab308';
+                targetCtx.textAlign = 'center';
+                targetCtx.textBaseline = 'middle';
+                targetCtx.fillText(label, midX, midY - 2);
+                targetCtx.restore();
+            }
+
+            targetCtx.restore();
+        }
+
+        function render() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            renderScene(ctx, rect.width, rect.height, false);
+        }
+
+        // 7. ГЕОМЕТРИЧЕСКИЕ ФУНКЦИИ ПОИСКА И ПРОВЕРКИ ПОПАДАНИЯ КУРСОРА
+        function pointInPoly(pt, poly) {
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                const xi = poly[i].x, yi = poly[i].y;
+                const xj = poly[j].x, yj = poly[j].y;
+                const intersect = ((yi > pt.y) !== (yj > pt.y)) &&
+                    (pt.x < (xj - xi) * (pt.y - yi) / (yj - yi + 0.00001) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        function distToSegment(p, v, w) {
+            const l2 = (v.x - w.x)**2 + (v.y - w.y)**2;
+            if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+            let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+            t = Math.max(0, Math.min(1, t));
+            return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
+        }
+
+        function findObjectById(id) {
+            const d = currentData();
+            const all = [...d.units, ...d.arrows, ...d.cities, ...d.fronts, ...d.regions, ...d.waters];
+            return all.find(o => o.id === id);
+        }
+
+        function hitTest(worldPt) {
+            const d = currentData();
+            const hitRadius = 10 / state.camera.zoom;
+
+            if (state.selected) {
+                const selObj = findObjectById(state.selected.id);
+                if (selObj && selObj.points) {
+                    for (let i = 0; i < selObj.points.length; i++) {
+                        if (Math.hypot(selObj.points[i].x - worldPt.x, selObj.points[i].y - worldPt.y) <= hitRadius) {
+                            return { ...state.selected, vertexIndex: i };
+                        }
+                    }
+                }
+            }
+
+            if (state.layers.units) {
+                for (let i = d.units.length - 1; i >= 0; i--) {
+                    const u = d.units[i];
+                    if (Math.abs(worldPt.x - u.x) <= 20 && Math.abs(worldPt.y - u.y) <= 16) {
+                        return { category: 'units', id: u.id };
+                    }
+                }
+            }
+
+            if (state.layers.cities) {
+                for (let i = d.cities.length - 1; i >= 0; i--) {
+                    const c = d.cities[i];
+                    if (Math.hypot(worldPt.x - c.x, worldPt.y - c.y) <= 18) {
+                        return { category: 'cities', id: c.id };
+                    }
+                }
+            }
+
+            if (state.layers.arrows) {
+                for (let i = d.arrows.length - 1; i >= 0; i--) {
+                    const arr = d.arrows[i];
+                    for (let j = 0; j < arr.points.length - 1; j++) {
+                        if (distToSegment(worldPt, arr.points[j], arr.points[j+1]) <= 10) {
+                            return { category: 'arrows', id: arr.id };
+                        }
+                    }
+                }
+            }
+
+            if (state.layers.fronts) {
+                for (let i = d.fronts.length - 1; i >= 0; i--) {
+                    if (pointInPoly(worldPt, d.fronts[i].points)) {
+                        return { category: 'fronts', id: d.fronts[i].id };
+                    }
+                }
+            }
+
+            if (state.layers.regions) {
+                for (let i = d.regions.length - 1; i >= 0; i--) {
+                    if (pointInPoly(worldPt, d.regions[i].points)) {
+                        return { category: 'regions', id: d.regions[i].id };
+                    }
+                }
+            }
+
+            if (state.layers.water) {
+                for (let i = d.waters.length - 1; i >= 0; i--) {
+                    const w = d.waters[i];
+                    if (w.style === 'coastline') {
+                        for (let j = 0; j < w.points.length - 1; j++) {
+                            if (distToSegment(worldPt, w.points[j], w.points[j+1]) <= 10) {
+                                return { category: 'waters', id: w.id };
+                            }
+                        }
+                    } else if (pointInPoly(worldPt, w.points)) {
+                        return { category: 'waters', id: w.id };
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        // 8. ОБРАБОТЧИКИ МЫШИ И КЛАВИАТУРЫ НА ХОЛСТЕ
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            const worldPt = screenToWorld(sx, sy);
+
+            if (e.button === 1 || state.spacePressed || state.activeTool === 'pan') {
+                state.isPanning = true;
+                state.panStart = { x: e.clientX - state.camera.x, y: e.clientY - state.camera.y };
+                canvas.style.cursor = 'grabbing';
+                return;
+            }
+
+            if (e.button === 2) {
+                if (state.drawingPoints.length > 0) {
+                    finishDrawingPolygon();
+                    return;
+                }
+                const hit = hitTest(worldPt);
+                if (hit && hit.vertexIndex !== undefined) {
+                    const poly = findObjectById(hit.id);
+                    if (poly && poly.points && poly.points.length > 3) {
+                        poly.points.splice(hit.vertexIndex, 1);
+                        saveToLocalStorage();
+                        showToast('Вершина удалена');
+                        render();
+                    }
+                }
+                return;
+            }
+
+            if (state.activeTool === 'ruler') {
+                state.rulerStart = worldPt;
+                state.rulerEnd = worldPt;
+                render();
+                return;
+            }
+
+            if (state.activeTool === 'paint') {
+                const hit = hitTest(worldPt);
+                if (hit && (hit.category === 'regions' || hit.category === 'fronts')) {
+                    const obj = findObjectById(hit.id);
+                    obj.faction = state.activeFactionId;
+                    const f = getFaction(state.activeFactionId);
+                    obj.hatched = f.hatched;
+                    obj.opacity = f.defaultOpacity;
+                    state.selected = hit;
+                    saveToLocalStorage();
+                    updateInspector();
+                    updateStatsUI();
+                    render();
+                }
+                return;
+            }
+
+            if (['draw_front', 'draw_region', 'draw_water', 'draw_arrow'].includes(state.activeTool)) {
+                state.drawingPoints.push({ x: worldPt.x, y: worldPt.y });
+                render();
+                return;
+            }
+
+            if (state.activeTool === 'place_unit') {
+                const label = document.getElementById('defaultUnitLabel').value || 'Отряд';
+                const newUnit = {
+                    id: 'unit_' + Date.now(),
+                    name: label,
+                    faction: state.activeFactionId,
+                    unitType: state.activeUnitType,
+                    x: worldPt.x,
+                    y: worldPt.y
+                };
+                currentData().units.push(newUnit);
+                state.selected = { category: 'units', id: newUnit.id };
+                saveToLocalStorage();
+                updateInspector();
+                updateObjectListUI();
+                render();
+                return;
+            }
+
+            if (state.activeTool === 'place_city') {
+                const newCity = {
+                    id: 'city_' + Date.now(),
+                    name: 'Новый пункт',
+                    cityType: 'city',
+                    x: worldPt.x,
+                    y: worldPt.y,
+                    rotation: 0
+                };
+                currentData().cities.push(newCity);
+                state.selected = { category: 'cities', id: newCity.id };
+                setTool('select');
+                saveToLocalStorage();
+                updateInspector();
+                updateObjectListUI();
+                render();
+                return;
+            }
+
+            const hit = hitTest(worldPt);
+            state.selected = hit;
+            updateInspector();
+            updateObjectListUI();
+
+            if (hit) {
+                const obj = findObjectById(hit.id);
+                if (hit.vertexIndex !== undefined && obj.points) {
+                    const origPt = obj.points[hit.vertexIndex];
+                    const sharedList = [{ poly: obj, idx: hit.vertexIndex }];
+                    if (state.layers.snap) {
+                        const d = currentData();
+                        [...d.regions, ...d.waters, ...d.fronts].forEach(other => {
+                            if (other.id === obj.id) return;
+                            other.points.forEach((p, idx) => {
+                                if (Math.hypot(p.x - origPt.x, p.y - origPt.y) <= 8) {
+                                    sharedList.push({ poly: other, idx });
+                                }
+                            });
+                        });
+                    }
+                    state.draggingVertex = { sharedList };
+                } else if (hit.category === 'units' || hit.category === 'cities') {
+                    state.draggingObject = { obj, offsetX: worldPt.x - obj.x, offsetY: worldPt.y - obj.y };
+                }
+            }
+            render();
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const sx = e.clientX - rect.left;
+            const sy = e.clientY - rect.top;
+            state.mouseWorld = screenToWorld(sx, sy);
+
+            const mcScale = parseFloat(document.getElementById('mcScaleInput').value) || 4;
+            const mcX = Math.round((state.mouseWorld.x - 500) * mcScale);
+            const mcZ = Math.round((state.mouseWorld.y - 400) * mcScale);
+            document.getElementById('coordDisplay').textContent = `X: ${mcX}, Z: ${mcZ}`;
+
+            if (state.isPanning) {
+                state.camera.x = e.clientX - state.panStart.x;
+                state.camera.y = e.clientY - state.panStart.y;
+                render();
+                return;
+            }
+
+            if (state.activeTool === 'ruler' && state.rulerStart && e.buttons === 1) {
+                state.rulerEnd = state.mouseWorld;
+                render();
+                return;
+            }
+
+            if (state.draggingVertex) {
+                state.draggingVertex.sharedList.forEach(item => {
+                    item.poly.points[item.idx].x = state.mouseWorld.x;
+                    item.poly.points[item.idx].y = state.mouseWorld.y;
+                });
+                render();
+                return;
+            }
+
+            if (state.draggingObject) {
+                state.draggingObject.obj.x = state.mouseWorld.x - state.draggingObject.offsetX;
+                state.draggingObject.obj.y = state.mouseWorld.y - state.draggingObject.offsetY;
+                render();
+                return;
+            }
+
+            if (state.drawingPoints.length > 0) {
+                render();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (state.draggingVertex || state.draggingObject) {
+                saveToLocalStorage();
+            }
+            state.isPanning = false;
+            state.draggingVertex = null;
+            state.draggingObject = null;
+            updateCursorStyle();
+        });
+
+        canvas.addEventListener('dblclick', (e) => {
+            if (state.drawingPoints.length > 0) {
+                finishDrawingPolygon();
+                return;
+            }
+
+            if (state.selected) {
+                const obj = findObjectById(state.selected.id);
+                if (obj && obj.points && obj.points.length >= 2) {
+                    const rect = canvas.getBoundingClientRect();
+                    const worldPt = screenToWorld(e.clientX - rect.left, e.clientY - rect.top);
+                    let bestIdx = -1;
+                    let minDist = 18;
+                    for (let i = 0; i < obj.points.length; i++) {
+                        const p1 = obj.points[i];
+                        const p2 = obj.points[(i + 1) % obj.points.length];
+                        const d = distToSegment(worldPt, p1, p2);
+                        if (d < minDist) {
+                            minDist = d;
+                            bestIdx = i + 1;
+                        }
+                    }
+                    if (bestIdx !== -1) {
+                        obj.points.splice(bestIdx, 0, { x: worldPt.x, y: worldPt.y });
+                        saveToLocalStorage();
+                        showToast('Добавлена новая вершина на границу');
+                        render();
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+
+            const zoomFactor = e.deltaY < 0 ? 1.12 : 0.89;
+            const newZoom = Math.min(4.0, Math.max(0.3, state.camera.zoom * zoomFactor));
+
+            state.camera.x = mx - (mx - state.camera.x) * (newZoom / state.camera.zoom);
+            state.camera.y = my - (my - state.camera.y) * (newZoom / state.camera.zoom);
+            state.camera.zoom = newZoom;
+
+            document.getElementById('zoomLabel').textContent = Math.round(newZoom * 100) + '%';
+            render();
+        }, { passive: false });
+
+        function finishDrawingPolygon() {
+            const pts = state.drawingPoints;
+            state.drawingPoints = [];
+
+            if (state.activeTool === 'draw_arrow') {
+                if (pts.length >= 2) {
+                    const style = document.getElementById('defaultArrowStyle').value;
+                    const newArr = {
+                        id: 'arr_' + Date.now(),
+                        name: style === 'defense' ? 'Рубеж обороны' : 'Направление удара',
+                        faction: state.activeFactionId,
+                        style: style,
+                        points: pts
+                    };
+                    currentData().arrows.push(newArr);
+                    state.selected = { category: 'arrows', id: newArr.id };
+                }
+            } else if (pts.length >= 3) {
+                const f = getFaction(state.activeFactionId);
+                if (state.activeTool === 'draw_front') {
+                    const newFront = {
+                        id: 'front_' + Date.now(),
+                        name: 'Зона контроля (' + f.name.split(' ')[0] + ')',
+                        faction: state.activeFactionId,
+                        opacity: 0.45,
+                        hatched: f.hatched,
+                        points: pts
+                    };
+                    currentData().fronts.push(newFront);
+                    state.selected = { category: 'fronts', id: newFront.id };
+                } else if (state.activeTool === 'draw_region') {
+                    const newReg = {
+                        id: 'reg_' + Date.now(),
+                        name: 'Новый округ',
+                        faction: state.activeFactionId,
+                        opacity: f.defaultOpacity,
+                        hatched: f.hatched,
+                        points: pts
+                    };
+                    currentData().regions.push(newReg);
+                    state.selected = { category: 'regions', id: newReg.id };
+                } else if (state.activeTool === 'draw_water') {
+                    const newWater = {
+                        id: 'water_' + Date.now(),
+                        name: 'Новое море',
+                        style: 'polygon',
+                        points: pts
+                    };
+                    currentData().waters.push(newWater);
+                    state.selected = { category: 'waters', id: newWater.id };
+                }
+            }
+            saveToLocalStorage();
+            updateInspector();
+            updateStatsUI();
+            updateObjectListUI();
+            render();
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            if (e.code === 'Space') {
+                state.spacePressed = true;
+                canvas.style.cursor = 'grab';
+            } else if (e.code === 'Escape') {
+                state.drawingPoints = [];
+                state.rulerStart = null;
+                state.selected = null;
+                updateInspector();
+                render();
+            } else if (e.code === 'Enter' && state.drawingPoints.length > 0) {
+                finishDrawingPolygon();
+            } else if (e.code === 'Delete' || e.code === 'Backspace') {
+                deleteSelectedObject();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                state.spacePressed = false;
+                updateCursorStyle();
+            }
+        });
+
+        // 9. УПРАВЛЕНИЕ UI, ИНСТРУМЕНТАМИ И ИНСПЕКТОРОМ
+        const TOOL_HINTS = {
+            select: 'Кликните по объекту для выбора. Тяните желтые вершины для изменения границ. Двойной клик по грани — добавить вершину.',
+            pan: 'Зажмите левую кнопку мыши и перемещайте карту. Колесико — масштаб.',
+            paint: 'Кликайте по регионам или зонам фронта, чтобы мгновенно перекрасить их в выбранную фракцию.',
+            draw_front: 'Кликайте по карте, чтобы нарисовать полигон линии фронта поверх регионов. Правый клик или Enter — завершить.',
+            draw_region: 'Кликайте для создания новой базовой провинции с жирной границей. Правый клик — завершить.',
+            draw_water: 'Кликайте для создания нового моря или озера. Правый клик — завершить.',
+            place_unit: 'Кликните в любое место карты, чтобы разместить выбранный военный значок НАТО.',
+            draw_arrow: 'Кликайте по точкам маршрута стрелки удара или линии окопов. Правый клик или двойной клик — завершить.',
+            place_city: 'Кликните на карту, чтобы поставить новый город, крепость или надпись.',
+            ruler: 'Зажмите левую кнопку мыши и тяните для измерения дистанции в блоках Майнкрафта.'
+        };
+
+        function setTool(toolName) {
+            state.activeTool = toolName;
+            state.drawingPoints = [];
+            state.rulerStart = null;
+            document.querySelectorAll('.tool-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tool === toolName);
+            });
+            document.getElementById('toolHintText').textContent = TOOL_HINTS[toolName] || '';
+            updateCursorStyle();
+            render();
+        }
+
+        function updateCursorStyle() {
+            if (state.activeTool === 'pan') canvas.style.cursor = 'grab';
+            else if (state.activeTool === 'select') canvas.style.cursor = 'default';
+            else canvas.style.cursor = 'crosshair';
+        }
+
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.addEventListener('click', () => setTool(btn.dataset.tool));
+        });
+
+        document.querySelectorAll('.unit-type-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                state.activeUnitType = btn.dataset.unit;
+                document.querySelectorAll('.unit-type-btn').forEach(b => {
+                    b.classList.remove('border-amber-400', 'text-amber-300');
+                    b.classList.add('border-tactical-700', 'text-slate-300');
+                });
+                btn.classList.add('border-amber-400', 'text-amber-300');
+                setTool('place_unit');
+            });
+        });
+
+        function renderFactionsUI() {
+            const container = document.getElementById('factionList');
+            const propSelect = document.getElementById('propFaction');
+            container.innerHTML = '';
+            propSelect.innerHTML = '';
+
+            state.factions.forEach(f => {
+                const isActive = state.activeFactionId === f.id;
+                const btn = document.createElement('button');
+                btn.className = `w-full flex items-center justify-between px-2.5 py-1.5 rounded border text-left transition ${
+                    isActive ? 'bg-tactical-800 border-amber-400 text-white' : 'bg-tactical-950 border-tactical-800 text-slate-300 hover:bg-tactical-800'
+                }`;
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2 truncate">
+                        <span class="w-3.5 h-3.5 rounded-sm shrink-0 border border-white/20" style="background:${f.color}"></span>
+                        <span class="truncate text-[11px] font-medium">${f.name}</span>
+                    </div>
+                    ${f.hatched ? '<span class="text-[9px] font-mono bg-tactical-700 px-1 rounded text-slate-300">ШТРИХ</span>' : ''}
+                `;
+                btn.addEventListener('click', () => {
+                    state.activeFactionId = f.id;
+                    renderFactionsUI();
+                });
+                container.appendChild(btn);
+
+                const opt = document.createElement('option');
+                opt.value = f.id;
+                opt.textContent = f.name;
+                propSelect.appendChild(opt);
+            });
+        }
+
+        function updateInspector() {
+            const emptyEl = document.getElementById('inspectorEmpty');
+            const contentEl = document.getElementById('inspectorContent');
+            const badgeEl = document.getElementById('selectedTypeBadge');
+
+            if (!state.selected) {
+                emptyEl.classList.remove('hidden');
+                contentEl.classList.add('hidden');
+                badgeEl.textContent = 'Нет выбора';
+                return;
+            }
+
+            const obj = findObjectById(state.selected.id);
+            if (!obj) return;
+
+            emptyEl.classList.add('hidden');
+            contentEl.classList.remove('hidden');
+
+            const catNames = {
+                regions: 'Регион',
+                fronts: 'Линия фронта',
+                waters: 'Водный объект',
+                cities: 'Город / Метка',
+                units: 'Отряд НАТО',
+                arrows: 'Стрелка'
+            };
+            badgeEl.textContent = catNames[state.selected.category] || 'Объект';
+
+            document.getElementById('propName').value = obj.name || '';
+
+            const hasFaction = ['regions', 'fronts', 'units', 'arrows'].includes(state.selected.category);
+            document.getElementById('propFactionRow').classList.toggle('hidden', !hasFaction);
+            if (hasFaction) document.getElementById('propFaction').value = obj.faction || 'neutral';
+
+            const isArea = ['regions', 'fronts'].includes(state.selected.category);
+            document.getElementById('propHatchRow').classList.toggle('hidden', !isArea);
+            document.getElementById('propOpacityRow').classList.toggle('hidden', !isArea);
+            if (isArea) {
+                document.getElementById('propHatched').checked = !!obj.hatched;
+                const op = obj.opacity ?? 0.35;
+                document.getElementById('propOpacity').value = op;
+                document.getElementById('propOpacityVal').textContent = Math.round(op * 100) + '%';
+            }
+
+            document.getElementById('propUnitTypeRow').classList.toggle('hidden', state.selected.category !== 'units');
+            if (state.selected.category === 'units') {
+                document.getElementById('propUnitType').value = obj.unitType;
+            }
+
+            const isCity = state.selected.category === 'cities';
+            document.getElementById('propCityTypeRow').classList.toggle('hidden', !isCity);
+            document.getElementById('propRotationRow').classList.toggle('hidden', !isCity);
+            if (isCity) {
+                document.getElementById('propCityType').value = obj.cityType || 'city';
+                document.getElementById('propRotation').value = obj.rotation || 0;
+                document.getElementById('propRotationVal').textContent = (obj.rotation || 0) + '°';
+            }
+
+            const hasPoly = !!obj.points;
+            document.getElementById('propPolygonActions').classList.toggle('hidden', !hasPoly);
+        }
+
+        document.getElementById('propName').addEventListener('input', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.name = e.target.value;
+                saveToLocalStorage();
+                updateObjectListUI();
+                render();
+            }
+        });
+
+        document.getElementById('propFaction').addEventListener('change', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.faction = e.target.value;
+                const f = getFaction(e.target.value);
+                if (state.selected.category === 'regions' || state.selected.category === 'fronts') {
+                    obj.hatched = f.hatched;
+                    obj.opacity = f.defaultOpacity;
+                    document.getElementById('propHatched').checked = f.hatched;
+                }
+                saveToLocalStorage();
+                updateStatsUI();
+                updateObjectListUI();
+                render();
+            }
+        });
+
+        document.getElementById('propHatched').addEventListener('change', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.hatched = e.target.checked;
+                saveToLocalStorage();
+                render();
+            }
+        });
+
+        document.getElementById('propOpacity').addEventListener('input', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.opacity = parseFloat(e.target.value);
+                document.getElementById('propOpacityVal').textContent = Math.round(obj.opacity * 100) + '%';
+                saveToLocalStorage();
+                render();
+            }
+        });
+
+        document.getElementById('rangeGlobalRegionAlpha').addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            document.getElementById('globalRegionAlphaLabel').textContent = Math.round(val * 100) + '%';
+            currentData().regions.forEach(r => r.opacity = val);
+            saveToLocalStorage();
+            render();
+        });
+
+        document.getElementById('propUnitType').addEventListener('change', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.unitType = e.target.value;
+                saveToLocalStorage();
+                render();
+            }
+        });
+
+        document.getElementById('propCityType').addEventListener('change', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.cityType = e.target.value;
+                saveToLocalStorage();
+                render();
+            }
+        });
+
+        document.getElementById('propRotation').addEventListener('input', (e) => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (obj) {
+                obj.rotation = parseInt(e.target.value, 10);
+                document.getElementById('propRotationVal').textContent = obj.rotation + '°';
+                saveToLocalStorage();
+                render();
+            }
+        });
+
+        document.getElementById('btnSubdividePoly').addEventListener('click', () => {
+            if (!state.selected) return;
+            const obj = findObjectById(state.selected.id);
+            if (!obj || !obj.points || obj.points.length < 2) return;
+            const newPts = [];
+            for (let i = 0; i < obj.points.length; i++) {
+                const p1 = obj.points[i];
+                const p2 = obj.points[(i + 1) % obj.points.length];
+                newPts.push(p1);
+                newPts.push({ x: Math.round((p1.x + p2.x) / 2), y: Math.round((p1.y + p2.y) / 2) });
+            }
+            obj.points = newPts;
+            saveToLocalStorage();
+            showToast(`Контур детализирован (${newPts.length} вершин)`);
+            render();
+        });
+
+        function deleteSelectedObject() {
+            if (!state.selected) return;
+            const d = currentData();
+            const cat = state.selected.category;
+            const idx = d[cat].findIndex(o => o.id === state.selected.id);
+            if (idx !== -1) {
+                d[cat].splice(idx, 1);
+                state.selected = null;
+                saveToLocalStorage();
+                updateInspector();
+                updateStatsUI();
+                updateObjectListUI();
+                render();
+                showToast('Объект удален');
+            }
+        }
+        document.getElementById('btnDeleteSelected').addEventListener('click', deleteSelectedObject);
+
+        function updateStatsUI() {
+            const d = currentData();
+            const total = d.regions.length || 1;
+            const counts = {};
+            state.factions.forEach(f => counts[f.id] = 0);
+            d.regions.forEach(r => {
+                counts[r.faction] = (counts[r.faction] || 0) + 1;
+            });
+
+            const container = document.getElementById('territoryStats');
+            container.innerHTML = '';
+
+            const bar = document.createElement('div');
+            bar.className = 'w-full h-2.5 rounded overflow-hidden flex bg-tactical-950 border border-tactical-700 mb-2';
+            state.factions.forEach(f => {
+                const pct = (counts[f.id] / total) * 100;
+                if (pct > 0) {
+                    const seg = document.createElement('div');
+                    seg.style.width = pct + '%';
+                    seg.style.backgroundColor = f.color;
+                    bar.appendChild(seg);
+                }
+            });
+            container.appendChild(bar);
+
+            state.factions.forEach(f => {
+                if (counts[f.id] > 0) {
+                    const pct = Math.round((counts[f.id] / total) * 100);
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between text-[11px]';
+                    row.innerHTML = `
+                        <div class="flex items-center gap-1.5 truncate">
+                            <span class="w-2.5 h-2.5 rounded-full" style="background:${f.color}"></span>
+                            <span class="text-slate-300 truncate">${f.name}</span>
+                        </div>
+                        <span class="font-mono text-slate-400">${counts[f.id]} окр. (${pct}%)</span>
+                    `;
+                    container.appendChild(row);
+                }
+            });
+        }
+
+        function updateObjectListUI() {
+            const d = currentData();
+            const container = document.getElementById('objectListContainer');
+            container.innerHTML = '';
+
+            const groups = [
+                { cat: 'regions', icon: '🗺️', items: d.regions },
+                { cat: 'fronts',  icon: '🚩', items: d.fronts },
+                { cat: 'units',   icon: '🛡️', items: d.units },
+                { cat: 'arrows',  icon: '🏹', items: d.arrows },
+                { cat: 'cities',  icon: '🏙️', items: d.cities },
+                { cat: 'waters',  icon: '🌊', items: d.waters }
+            ];
+
+            groups.forEach(g => {
+                g.items.forEach(item => {
+                    const isSel = state.selected && state.selected.id === item.id;
+                    const f = item.faction ? getFaction(item.faction) : null;
+                    const row = document.createElement('div');
+                    row.className = `flex items-center justify-between px-2 py-1 rounded cursor-pointer text-[11px] border ${
+                        isSel ? 'bg-tactical-800 border-amber-400 text-amber-300' : 'bg-tactical-950/60 border-transparent hover:bg-tactical-800 text-slate-300'
+                    }`;
+                    row.innerHTML = `
+                        <div class="flex items-center gap-1.5 truncate">
+                            <span>${g.icon}</span>
+                            <span class="truncate">${item.name || 'Без названия'}</span>
+                        </div>
+                        ${f ? `<span class="w-2.5 h-2.5 rounded-sm shrink-0" style="background:${f.color}"></span>` : ''}
+                    `;
+                    row.addEventListener('click', () => {
+                        state.selected = { category: g.cat, id: item.id };
+                        updateInspector();
+                        updateObjectListUI();
+                        render();
+                    });
+                    container.appendChild(row);
+                });
+            });
+        }
+
+        document.getElementById('btnAddSampleFront').addEventListener('click', () => {
+            const d = currentData();
+            if (d.regions[0]) { d.regions[0].faction = 'blue'; d.regions[0].opacity = 0.38; }
+            if (d.regions[2]) { d.regions[2].faction = 'red';  d.regions[2].opacity = 0.40; }
+            if (d.regions[3]) { d.regions[3].faction = 'gray'; d.regions[3].hatched = true; d.regions[3].opacity = 0.38; }
+
+            d.units.push(
+                { id: 'u_demo1', name: '1-я Гвардия Кейрата', faction: 'blue', unitType: 'mech', x: 520, y: 240 },
+                { id: 'u_demo2', name: 'Штаб Север', faction: 'blue', unitType: 'hq', x: 565, y: 175 },
+                { id: 'u_demo3', name: 'Штурмовой корпус', faction: 'red', unitType: 'armor', x: 290, y: 530 },
+                { id: 'u_demo4', name: 'Бои за переправу', faction: 'gray', unitType: 'battle', x: 422, y: 455 }
+            );
+            d.arrows.push(
+                { id: 'a_demo1', name: 'Удар с юга', faction: 'red', style: 'attack', points: [{x: 310, y: 500}, {x: 380, y: 465}, {x: 410, y: 440}] },
+                { id: 'a_demo2', name: 'Рубеж Кейрата', faction: 'blue', style: 'defense', points: [{x: 390, y: 345}, {x: 485, y: 375}, {x: 560, y: 360}] }
+            );
+            saveToLocalStorage();
+            updateStatsUI();
+            updateObjectListUI();
+            render();
+            showToast('Добавлен пример тактической обстановки!');
+        });
+
+        // 10. ТАЙМЛАЙН (СНИМКИ ДАТ / ДНЕЙ)
+        function updateSnapshotUI() {
+            const sel = document.getElementById('snapshotSelect');
+            sel.innerHTML = '';
+            state.snapshots.forEach((snap, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = `${snap.title} (${snap.timestamp})`;
+                if (idx === state.currentSnapIndex) opt.selected = true;
+                sel.appendChild(opt);
+            });
+        }
+
+        document.getElementById('snapshotSelect').addEventListener('change', (e) => {
+            state.currentSnapIndex = parseInt(e.target.value, 10);
+            state.selected = null;
+            updateInspector();
+            updateStatsUI();
+            updateObjectListUI();
+            render();
+        });
+
+        document.getElementById('btnPrevSnap').addEventListener('click', () => {
+            if (state.currentSnapIndex > 0) {
+                state.currentSnapIndex--;
+                state.selected = null;
+                updateSnapshotUI();
+                updateInspector();
+                updateStatsUI();
+                updateObjectListUI();
+                render();
+                showToast(state.snapshots[state.currentSnapIndex].title);
+            }
+        });
+
+        document.getElementById('btnNextSnap').addEventListener('click', () => {
+            if (state.currentSnapIndex < state.snapshots.length - 1) {
+                state.currentSnapIndex++;
+                state.selected = null;
+                updateSnapshotUI();
+                updateInspector();
+                updateStatsUI();
+                updateObjectListUI();
+                render();
+                showToast(state.snapshots[state.currentSnapIndex].title);
+            }
+        });
+
+        document.getElementById('btnNewSnap').addEventListener('click', () => {
+            const clonedData = JSON.parse(JSON.stringify(currentData()));
+            const dayNum = state.snapshots.length + 1;
+            state.snapshots.push({
+                id: 'snap_' + Date.now(),
+                title: `День ${dayNum} — Оперативная сводка`,
+                timestamp: new Date().toLocaleDateString('ru-RU'),
+                data: clonedData
+            });
+            state.currentSnapIndex = state.snapshots.length - 1;
+            saveToLocalStorage();
+            updateSnapshotUI();
+            showToast(`Создана новая сводка: День ${dayNum}`);
+        });
+
+        document.getElementById('btnDelSnap').addEventListener('click', () => {
+            if (state.snapshots.length <= 1) {
+                showToast('Нельзя удалить единственную сводку');
+                return;
+            }
+            state.snapshots.splice(state.currentSnapIndex, 1);
+            state.currentSnapIndex = Math.max(0, state.currentSnapIndex - 1);
+            saveToLocalStorage();
+            updateSnapshotUI();
+            updateStatsUI();
+            updateObjectListUI();
+            render();
+            showToast('Снимок даты удален');
+        });
+
+        // 11. ПЕРЕКЛЮЧАТЕЛИ СЛОЕВ И КАМЕРЫ
+        const layerMapping = {
+            layerSat: 'sat',
+            layerWater: 'water',
+            layerRegions: 'regions',
+            layerFronts: 'fronts',
+            layerCities: 'cities',
+            layerArrows: 'arrows',
+            layerUnits: 'units',
+            layerGrid: 'grid',
+            toggleSnap: 'snap',
+            toggleSmooth: 'smooth'
+        };
+        Object.keys(layerMapping).forEach(domId => {
+            document.getElementById(domId).addEventListener('change', (e) => {
+                state.layers[layerMapping[domId]] = e.target.checked;
+                render();
+            });
+        });
+
+        document.getElementById('btnZoomIn').addEventListener('click', () => {
+            state.camera.zoom = Math.min(4.0, state.camera.zoom * 1.2);
+            document.getElementById('zoomLabel').textContent = Math.round(state.camera.zoom * 100) + '%';
+            render();
+        });
+        document.getElementById('btnZoomOut').addEventListener('click', () => {
+            state.camera.zoom = Math.max(0.3, state.camera.zoom / 1.2);
+            document.getElementById('zoomLabel').textContent = Math.round(state.camera.zoom * 100) + '%';
+            render();
+        });
+        document.getElementById('btnResetView').addEventListener('click', () => {
+            state.camera = { x: 40, y: 15, zoom: 0.92 };
+            document.getElementById('zoomLabel').textContent = '92%';
+            render();
+        });
+
+        // 12. СПУТНИКОВЫЙ СНИМОК И ВШИВАНИЕ В INDEX.HTML ДЛЯ GITHUB
+        document.getElementById('btnToggleRef').addEventListener('click', () => {
+            document.getElementById('refImagePanel').classList.toggle('hidden');
+        });
+        document.getElementById('btnCloseRefPanel').addEventListener('click', () => {
+            document.getElementById('refImagePanel').classList.add('hidden');
+        });
+
+        function loadRefImageFromBlob(blob) {
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const dataUrl = ev.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    state.refImage.img = img;
+                    state.refImage.dataUrl = dataUrl;
+                    state.refImage.visible = true;
+                    document.getElementById('chkShowRef').checked = true;
+                    try { localStorage.setItem('deepcraft_sat_img_v1', dataUrl); } catch (e) {}
+                    showToast('🛰️ Спутниковый снимок загружен! Нажмите «📦 Скачать index.html для GitHub», чтобы зашить его.');
+                    render();
+                };
+                img.src = dataUrl;
+            };
+            reader.readAsDataURL(blob);
+        }
+
+        document.getElementById('inputRefImage').addEventListener('change', (e) => {
+            if (e.target.files && e.target.files[0]) {
+                loadRefImageFromBlob(e.target.files[0]);
+            }
+        });
+
+        window.addEventListener('paste', (e) => {
+            if (e.clipboardData && e.clipboardData.items) {
+                for (let item of e.clipboardData.items) {
+                    if (item.type.indexOf('image') !== -1) {
+                        loadRefImageFromBlob(item.getAsFile());
+                        break;
+                    }
+                }
+            }
+        });
+
+        document.getElementById('chkShowRef').addEventListener('change', (e) => {
+            state.refImage.visible = e.target.checked;
+            render();
+        });
+        document.getElementById('rangeRefAlpha').addEventListener('input', (e) => {
+            state.refImage.alpha = parseFloat(e.target.value);
+            render();
+        });
+        document.getElementById('chkFitRef').addEventListener('change', (e) => {
+            state.refImage.fitToSheet = e.target.checked;
+            render();
+        });
+
+        // Кнопка «Скачать index.html для GitHub» — вшивает спутниковый снимок и карту прямо внутрь HTML-файла
+        document.getElementById('btnBakeGitHub').addEventListener('click', () => {
+            let satDataUrl = state.refImage.dataUrl;
+            if (!satDataUrl && state.refImage.img) {
+                try {
+                    const tmp = document.createElement('canvas');
+                    tmp.width = 940;
+                    tmp.height = 770;
+                    tmp.getContext('2d').drawImage(state.refImage.img, 0, 0, 940, 770);
+                    satDataUrl = tmp.toDataURL('image/jpeg', 0.88);
+                } catch (e) {}
+            }
+
+            const mapStatePayload = {
+                factions: state.factions,
+                snapshots: state.snapshots
+            };
+
+            let htmlSource = document.documentElement.outerHTML;
+            const scriptReplacement = `<script id="bakedGitHubData">\nwindow.EMBEDDED_SAT_DATA_URL = ${JSON.stringify(satDataUrl)};\nwindow.EMBEDDED_MAP_STATE = ${JSON.stringify(mapStatePayload)};\n<\/script>`;
+            htmlSource = htmlSource.replace(/<script id="bakedGitHubData">[\s\S]*?<\/script>/, scriptReplacement);
+
+            const blob = new Blob(['<!DOCTYPE html>\n' + htmlSource], { type: 'text/html;charset=utf-8' });
+            const link = document.createElement('a');
+            link.download = 'index.html';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            showToast('📦 Готовый index.html скачан! Загрузите его на GitHub.');
+        });
+
+        // 13. МОДАЛЬНОЕ ОКНО РЕДАКТИРОВАНИЯ ФРАКЦИЙ
+        document.getElementById('btnEditFactions').addEventListener('click', () => {
+            const container = document.getElementById('factionEditorRows');
+            container.innerHTML = '';
+            state.factions.forEach((f, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 bg-tactical-800 p-2 rounded border border-tactical-700';
+                row.innerHTML = `
+                    <input type="color" data-idx="${idx}" class="fac-color w-8 h-7 bg-transparent cursor-pointer" value="${f.color}">
+                    <input type="text" data-idx="${idx}" class="fac-name flex-1 bg-tactical-950 border border-tactical-700 rounded px-2 py-1 text-white text-xs" value="${f.name}">
+                `;
+                container.appendChild(row);
+            });
+            document.getElementById('factionModal').classList.remove('hidden');
+        });
+
+        document.getElementById('btnCloseFactionModal').addEventListener('click', () => {
+            document.getElementById('factionModal').classList.add('hidden');
+        });
+
+        document.getElementById('btnSaveFactions').addEventListener('click', () => {
+            document.querySelectorAll('.fac-color').forEach(el => {
+                const idx = parseInt(el.dataset.idx, 10);
+                state.factions[idx].color = el.value;
+            });
+            document.querySelectorAll('.fac-name').forEach(el => {
+                const idx = parseInt(el.dataset.idx, 10);
+                state.factions[idx].name = el.value;
+            });
+            document.getElementById('factionModal').classList.add('hidden');
+            saveToLocalStorage();
+            renderFactionsUI();
+            updateStatsUI();
+            render();
+            showToast('Фракции обновлены');
+        });
+
+        // 14. ЭКСПОРТ ГОТОВОЙ МИЛИТАРИ-СВОДКИ В PNG (С ЛЕГЕНДОЙ И ШТАМПОМ)
+        document.getElementById('btnExportPNG').addEventListener('click', () => {
+            const expCanvas = document.createElement('canvas');
+            expCanvas.width = 1000;
+            expCanvas.height = 800;
+            const expCtx = expCanvas.getContext('2d');
+
+            renderScene(expCtx, 1000, 800, true);
+
+            const title = document.getElementById('mapTitleInput').value || 'Оперативная карта';
+            const snap = state.snapshots[state.currentSnapIndex];
+
+            expCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+            expCtx.fillRect(30, 20, 440, 58);
+            expCtx.strokeStyle = '#eab308';
+            expCtx.lineWidth = 2;
+            expCtx.strokeRect(30, 20, 440, 58);
+
+            expCtx.fillStyle = '#eab308';
+            expCtx.font = 'bold 11px JetBrains Mono';
+            expCtx.fillText(`DEEPCRAFT TACTICAL // ${snap.title.toUpperCase()} (${snap.timestamp})`, 42, 40);
+
+            expCtx.fillStyle = '#ffffff';
+            expCtx.font = 'bold 16px Inter';
+            expCtx.fillText(title, 42, 64);
+
+            const legendX = 690;
+            const legendY = 605;
+            expCtx.fillStyle = 'rgba(15, 23, 42, 0.92)';
+            expCtx.fillRect(legendX, legendY, 260, 165);
+            expCtx.strokeStyle = '#334155';
+            expCtx.lineWidth = 1.5;
+            expCtx.strokeRect(legendX, legendY, 260, 165);
+
+            expCtx.fillStyle = '#94a3b8';
+            expCtx.font = 'bold 10px JetBrains Mono';
+            expCtx.fillText('УСЛОВНЫЕ ОБОЗНАЧЕНИЯ ЗОН:', legendX + 12, legendY + 20);
+
+            state.factions.forEach((f, idx) => {
+                const fy = legendY + 34 + idx * 21;
+                expCtx.fillStyle = f.color;
+                expCtx.fillRect(legendX + 12, fy, 16, 13);
+                expCtx.strokeStyle = '#ffffff';
+                expCtx.lineWidth = 1;
+                expCtx.strokeRect(legendX + 12, fy, 16, 13);
+
+                expCtx.fillStyle = '#f8fafc';
+                expCtx.font = '500 11px Inter';
+                expCtx.fillText(f.name, legendX + 36, fy + 10);
+            });
+
+            const link = document.createElement('a');
+            link.download = `deepcraft-map-${Date.now()}.png`;
+            link.href = expCanvas.toDataURL('image/png');
+            link.click();
+            showToast('📸 Военная сводка сохранена в PNG!');
+        });
+
+        // 15. СОХРАНЕНИЕ И ЗАГРУЗКА ПРОЕКТА В JSON
+        document.getElementById('btnSaveJSON').addEventListener('click', () => {
+            const payload = {
+                version: '2.4',
+                title: document.getElementById('mapTitleInput').value,
+                factions: state.factions,
+                snapshots: state.snapshots
+            };
+            const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+            const link = document.createElement('a');
+            link.download = 'deepcraft-project.json';
+            link.href = URL.createObjectURL(blob);
+            link.click();
+            showToast('Проект сохранен в JSON');
+        });
+
+        document.getElementById('inputLoadJSON').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    if (parsed.factions && parsed.snapshots) {
+                        state.factions = parsed.factions;
+                        state.snapshots = parsed.snapshots;
+                        state.currentSnapIndex = 0;
+                        state.selected = null;
+                        if (parsed.title) document.getElementById('mapTitleInput').value = parsed.title;
+                        saveToLocalStorage();
+                        renderFactionsUI();
+                        updateSnapshotUI();
+                        updateInspector();
+                        updateStatsUI();
+                        updateObjectListUI();
+                        render();
+                        showToast('Проект успешно загружен!');
+                    }
+                } catch (err) {
+                    showToast('Ошибка чтения файла JSON');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('btnResetDefault').addEventListener('click', () => {
+            state.factions = JSON.parse(JSON.stringify(DEFAULT_FACTIONS));
+            state.snapshots = [{
+                id: 'snap_1',
+                title: 'День 1 — Исходная карта',
+                timestamp: new Date().toLocaleDateString('ru-RU'),
+                data: createInitialMapData()
+            }];
+            state.currentSnapIndex = 0;
+            state.selected = null;
+            saveToLocalStorage();
+            renderFactionsUI();
+            updateSnapshotUI();
+            updateInspector();
+            updateStatsUI();
+            updateObjectListUI();
+            render();
+            showToast('Карта сброшена к исходным 7 регионам');
+        });
+
+        function showToast(msg) {
+            const box = document.getElementById('toastBox');
+            box.textContent = msg;
+            box.classList.remove('opacity-0');
+            clearTimeout(box._timer);
+            box._timer = setTimeout(() => box.classList.add('opacity-0'), 2400);
+        }
+
+        window.onload = function () {
+            autoLoadSatelliteImage();
+            renderFactionsUI();
+            updateSnapshotUI();
+            updateInspector();
+            updateStatsUI();
+            updateObjectListUI();
+            resizeCanvas();
+        };
+    </script>
+</body>
+</html>
